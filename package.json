@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/hamzahOlaniyan/LinutyApi#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.83.0",
     "express": "^5.1.0"
   }
 }

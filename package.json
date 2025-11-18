@@ -1,0 +1,22 @@
+{
+  "name": "linuty-api",
+  "version": "1.0.0",
+  "description": "linuty-cloud-run-api",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamzahOlaniyan/LinutyApi.git"
+  },
+  "author": "Hamzah Olaniyan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hamzahOlaniyan/LinutyApi/issues"
+  },
+  "homepage": "https://github.com/hamzahOlaniyan/LinutyApi#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

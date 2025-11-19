@@ -1,23 +1,37 @@
 {
-  "name": "linuty-api",
-  "version": "1.0.0",
-  "description": "linuty-cloud-run-api",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/hamzahOlaniyan/LinutyApi.git"
-  },
-  "author": "Hamzah Olaniyan",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/hamzahOlaniyan/LinutyApi/issues"
-  },
-  "homepage": "https://github.com/hamzahOlaniyan/LinutyApi#readme",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.83.0",
-    "express": "^5.1.0"
-  }
+   "name": "linuty-api",
+   "version": "1.0.0",
+   "description": "linuty-cloud-run-api",
+   "main": "index.ts",
+   "type": "commonjs",
+   "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1",
+      "dev": "nodemon",
+      "build": "tsc",
+      "start": "node dist/index.js",
+      "docker-build": "docker build -t gcr.io//$PROJECT_ID/$SERVICE_NAME .",
+      "docker-push": "docker push gcr.io//$PROJECT_ID/$SERVICE_NAME",
+      "deploy": "gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME && gcloud run deploy $SERVICE_NAME --image gcr.io/$PROJECT_ID/$SERVICE_NAME --platform managed --allow-unauthenticated"
+   },
+   "repository": {
+      "type": "git",
+      "url": "git+https://github.com/hamzahOlaniyan/LinutyApi.git"
+   },
+   "author": "Hamzah Olaniyan",
+   "license": "ISC",
+   "bugs": {
+      "url": "https://github.com/hamzahOlaniyan/LinutyApi/issues"
+   },
+   "homepage": "https://github.com/hamzahOlaniyan/LinutyApi#readme",
+   "dependencies": {
+      "@supabase/supabase-js": "^2.83.0",
+      "@types/express": "^5.0.5",
+      "express": "^5.1.0",
+      "nodemon": "^3.1.11"
+   },
+   "devDependencies": {
+      "@types/node": "^24.10.1",
+      "ts-node": "^10.9.2",
+      "typescript": "^5.9.3"
+   }
 }

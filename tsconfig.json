@@ -52,6 +52,6 @@
       "strict": true,
       "verbatimModuleSyntax": false
    },
-   "include": ["src/**/*.ts"],
+   "include": ["src/**/*.ts", ".prisma/client/client.ts"],
    "exclude": ["node_modules"]
 }

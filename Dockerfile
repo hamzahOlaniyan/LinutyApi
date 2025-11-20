@@ -6,8 +6,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+RUN npm install --save-dev @types/pg
+
 # Copy source code
 COPY . .
+
+RUN npx prisma generate
 
 # Build TypeScript → JavaScript
 RUN npm run build

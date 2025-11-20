@@ -6,16 +6,16 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Install type definitions for pg (optional)
+# Install type definitions for pg
 RUN npm install --save-dev @types/pg
 
-# Copy the prisma folder FIRST (so prisma/.env is available)
+# Copy the prisma folder first (with .env placeholder)
 COPY prisma ./prisma
 
-# Copy the rest of the source code
+# Copy the rest of the app **excluding prisma** to avoid overwriting
 COPY . .
 
-# Generate Prisma client (needs prisma/.env)
+# Generate Prisma client (will now see prisma/.env)
 RUN npx prisma generate
 
 # Build TypeScript → JavaScript

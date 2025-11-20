@@ -6,24 +6,22 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+# Install type definitions for pg (optional)
 RUN npm install --save-dev @types/pg
 
-# Copy the rest of the code
-COPY . .
-
-# Copy prisma schema
+# Copy the prisma folder FIRST (so prisma/.env is available)
 COPY prisma ./prisma
 
+# Copy the rest of the source code
+COPY . .
 
-# Generate Prisma client into /generated/prisma
+# Generate Prisma client (needs prisma/.env)
 RUN npx prisma generate
 
 # Build TypeScript → JavaScript
 RUN npm run build
 
-# Cloud Run listens on PORT env
 ENV PORT=8080
 EXPOSE 8080
 
-# Run the built JS file, not the TS source
 CMD ["node", "dist/index.js"]

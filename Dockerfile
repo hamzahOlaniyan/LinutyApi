@@ -1,3 +1,4 @@
+# Use Node.js 20 Alpine
 FROM node:20-alpine
 
 WORKDIR /app
@@ -5,23 +6,28 @@ WORKDIR /app
 # Install dependencies
 COPY package*.json ./
 RUN npm install
-
-# Install type definitions for pg
 RUN npm install --save-dev @types/pg
 
-# Copy the prisma folder first (with .env placeholder)
+# Copy prisma first (with .env placeholder)
 COPY prisma ./prisma
 
-# Copy the rest of the app **excluding prisma** to avoid overwriting
+# Copy the rest of your app
 COPY . .
 
-# Generate Prisma client (will now see prisma/.env)
+# Set DATABASE_URL for Prisma generation
+# You can either hardcode a placeholder or use ARG/ENV
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
+
+# Generate Prisma client
 RUN npx prisma generate
 
-# Build TypeScript → JavaScript
+# Build TypeScript
 RUN npm run build
 
+# Cloud Run port
 ENV PORT=8080
 EXPOSE 8080
 
+# Run the compiled app
 CMD ["node", "dist/index.js"]

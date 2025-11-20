@@ -8,9 +8,13 @@ RUN npm install
 
 RUN npm install --save-dev @types/pg
 
-# Copy source code
+# Copy prisma schema
+COPY prisma ./prisma
+
+# Copy the rest of the code
 COPY . .
 
+# Generate Prisma client into /generated/prisma
 RUN npx prisma generate
 
 # Build TypeScript → JavaScript

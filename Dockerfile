@@ -19,7 +19,7 @@ COPY . .
 # ARG DATABASE_URL
 # ENV DATABASE_URL=$DATABASE_URL
 # Set a dummy DATABASE_URL just for prisma generate
-ENV DATABASE_URL="postgresql://user:password@localhost:5432/dbname?schema=public"
+# ENV DATABASE_URL="postgresql://user:password@localhost:5432/dbname?schema=public"
 
 # Generate Prisma client
 RUN npx prisma generate

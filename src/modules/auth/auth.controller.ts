@@ -22,7 +22,7 @@ export class AuthController {
       const { email, password, username } = req.body;
 
       if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
+        return res.status(400).json({ message: "Email and password are required!" });
       }
 
       const normalisedEmail = email.toLowerCase();
@@ -33,7 +33,7 @@ export class AuthController {
       });
 
       if (existingUser) {
-        return res.status(409).json({ message: "Email already registered" });
+        return res.status(409).json({ message: "Email already registered!" });
       }
 
       // 2️⃣ If username provided, check if it already exists in profiles
@@ -43,7 +43,7 @@ export class AuthController {
         });
 
         if (existingProfile) {
-          return res.status(409).json({ message: "Username already taken" });
+          return res.status(409).json({ message: "Username already taken!" });
         }
       }
 

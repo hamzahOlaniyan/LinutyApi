@@ -13,7 +13,7 @@ export class PostController {
       if (!content && !images && !media) {
         return res
           .status(400)
-          .json({ message: "Post must have content or media" });
+          .json({ message: "Post must have content or media!" });
       }
 
       const post = await prisma.posts.create({
@@ -38,7 +38,7 @@ export class PostController {
       return res.status(201).json(post);
     } catch (err) {
       console.error("createPost error:", err);
-      return res.status(500).json({ message: "Something went wrong" });
+      return res.status(500).json({ message: "Something went wrong!" });
     }
   }
 
@@ -77,7 +77,7 @@ export class PostController {
       });
     } catch (err) {
       console.error("getFeed error:", err);
-      return res.status(500).json({ message: "Something went wrong" });
+      return res.status(500).json({ message: "Something went wrong!" });
     }
   }
 
@@ -107,13 +107,13 @@ export class PostController {
       });
 
       if (!post) {
-        return res.status(404).json({ message: "Post not found" });
+        return res.status(404).json({ message: "Post not found!" });
       }
 
       return res.json(post);
     } catch (err) {
       console.error("getById error:", err);
-      return res.status(500).json({ message: "Something went wrong" });
+      return res.status(500).json({ message: "Something went wrong!" });
     }
   }
 
@@ -126,7 +126,7 @@ export class PostController {
       // Check post exists
       const post = await prisma.posts.findUnique({ where: { id: postId } });
       if (!post) {
-        return res.status(404).json({ message: "Post not found" });
+        return res.status(404).json({ message: "Post not found!" });
       }
 
       // See if user has already liked this post

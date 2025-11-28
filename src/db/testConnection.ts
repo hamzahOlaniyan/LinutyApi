@@ -1,4 +1,4 @@
-import { prisma } from "./client";
+import { prisma } from "../config/prisma";
 
 async function main() {
    try {

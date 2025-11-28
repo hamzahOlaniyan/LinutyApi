@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPostById = exports.getAllPost = void 0;
-const client_1 = require("../db/client");
+const prisma_1 = require("../config/prisma");
 const getAllPost = async (req, res) => {
     try {
-        const posts = await client_1.prisma.posts.findMany();
+        const posts = await prisma_1.prisma.posts.findMany();
         res.status(200).json(posts);
     }
     catch (error) {
@@ -15,7 +15,7 @@ exports.getAllPost = getAllPost;
 const getPostById = async (req, res) => {
     try {
         const { id } = req.params;
-        const post = await client_1.prisma.posts.findUnique({
+        const post = await prisma_1.prisma.posts.findUnique({
             where: { id: id },
         });
         if (!post) {

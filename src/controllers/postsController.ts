@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 
-import { prisma } from "../db/client";
+import { prisma } from "../config/prisma";
 
 export const getAllPost = async (req: Request, res: Response) => {
    try {

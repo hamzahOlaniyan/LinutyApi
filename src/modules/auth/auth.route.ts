@@ -17,4 +17,16 @@ router.post("/login", AuthController.login);
 // /auth/logout -> client should clear tokens
 router.post("/logout", AuthController.logout);
 
+router.get("/session", AuthController.getSession);
+
+router.get("/user", AuthController.getUser);
+
+router.get("/user-identities", AuthController.getUserIdentities);
+
+router.post("/set-session", AuthController.setSession);
+
+
+
+
+
 export default router;

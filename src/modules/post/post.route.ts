@@ -1,22 +1,33 @@
 import { Router } from "express";
+import { supabaseAuth, optionalSupabaseAuth } from "../auth/auth.middleware";
 import { PostController } from "./post.controller";
-import { supabaseAuth } from "../auth/auth.middleware";
+import { createPostSchema } from "./post.validation";
+import { validateBody } from "../../middleware/validate";
+
 
 const router = Router();
 
-// Feed
-router.get("/", supabaseAuth, PostController.getFeed);
+// feed
+router.get("/feed", supabaseAuth, PostController.getFeed);
 
-// Create post
-router.post("/", supabaseAuth, PostController.createPost);
+// create/update/delete
+router.post("/", supabaseAuth,validateBody(createPostSchema), PostController.createPost);
+router.get("/:postId", optionalSupabaseAuth, PostController.getPostById);
+router.patch("/:postId", supabaseAuth, PostController.updatePost);
+router.delete("/:postId", supabaseAuth, PostController.deletePost);
 
-// Single post
-router.get("/:id", supabaseAuth, PostController.getById);
+// profile posts (mount under /profiles in profile.routes if you prefer)
+router.get("/profile/:username", optionalSupabaseAuth, PostController.getProfilePosts);
 
-// Like / unlike
-router.post("/:id/like", supabaseAuth, PostController.toggleLike);
+// reactions
+router.post("/:postId/react", supabaseAuth, PostController.reactToPost);
+router.delete("/:postId/react", supabaseAuth, PostController.removePostReaction);
 
-// Delete post
-router.delete("/:id", supabaseAuth, PostController.deletePost);
+// comments
+router.post("/:postId/comments", supabaseAuth, PostController.addComment);
+router.get("/:postId/comments", optionalSupabaseAuth, PostController.getComments);
+
+
+
 
 export default router;

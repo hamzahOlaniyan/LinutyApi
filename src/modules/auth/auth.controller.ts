@@ -1,13 +1,11 @@
 // src/modules/auth/auth.controller.ts
-import type {  Response } from "express";
+import type {  NextFunction, Response } from "express";
 import { supabaseAdmin } from "../../config/supabase";
 import { prisma } from "../../config/prisma";
 import {  AuthedRequest } from "./auth.middleware";
 
-export const access_token = "eyJhbGciOiJIUzI1NiIsImtpZCI6ImcvSUcwZVllYXdKUDdjREUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3BuZWRwbWZ2dG52c2hzcnhldW5qLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJmZTg4YjUzYy1jMGQ1LTRlMjgtOWNhZC1mOGU4OTllN2Y3ZjYiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzY0NzE2ODAyLCJpYXQiOjE3NjQ3MTMyMDIsImVtYWlsIjoicGF0cmlja2xlbWEwNEBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoicGF0cmlja2xlbWEwNEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJzdWIiOiJmZTg4YjUzYy1jMGQ1LTRlMjgtOWNhZC1mOGU4OTllN2Y3ZjYiLCJ1c2VybmFtZSI6ImhhbXphaDg4In0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoib3RwIiwidGltZXN0YW1wIjoxNzY0NzEzMjAyfV0sInNlc3Npb25faWQiOiJhOWRhODVmMS1iZWJhLTRkMWEtOGM4YS0xYmQzZmI5OTZlZmEiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.u0sABhrvRcdGtuFMD7q2zvdoyu4WWAFXnvzYvaUsr2s"
-const refresh_token = "odhwdbhf2sp6"
 
-const buildAuthResponse = (session: any, user: any) => {
+const buildAuthResponse = (session: any, user: any, profile?:any) => {
   return {
     user: {
       id: user.id,
@@ -25,32 +23,34 @@ export class AuthController {
   try {
     const { email, password, username, firstName, lastName } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || !username || !firstName|| !lastName) {
       return res.status(400).json({ message: "Email and password are required!" });
     }
 
     const normalisedEmail = email.toLowerCase();
 
-    // ✅ Only check username in Prisma (profiles)
-    if(email){
-          const existingProfile = await prisma.profile.findUnique({
-        where: { email: email }
-      });
+    // ✅ Only check email in Prisma (profiles)
+    // if(email){
+    //       const existingProfile = await prisma.profile.findUnique({
+    //     where: { email: email }
+    //   });
 
-      if (existingProfile) {
-        return res.status(409).json({ message: "email is already in use!" });
-      }
-    }
+    //   if (existingProfile) {
+    //     return res.status(409).json({ message: "email is already in use!" });
+    //   }
+    // }
 
-    if (username) {
-      const existingUsername = await prisma.profile.findUnique({
-        where: { username }
-      });
+     // ✅ Only check username in Prisma (profiles)
 
-      if (existingUsername) {
-        return res.status(409).json({ message: "Username already taken!" });
-      }
-    }
+    // if (username) {
+    //   const existingUsername = await prisma.profile.findUnique({
+    //     where: { username }
+    //   });
+
+    //   if (existingUsername) {
+    //     return res.status(409).json({ message: "Username already taken!" });
+    //   }
+    // }
 
 
     // ✅ Let Supabase handle email uniqueness
@@ -88,7 +88,6 @@ export class AuthController {
     return res.status(500).json({ message: "Something went wrong" });
   }
 }
-
 
   // POST /auth/verify-otp
   static async verifyOtp(req: AuthedRequest, res: Response) {
@@ -143,8 +142,6 @@ export class AuthController {
     }
   }
 
-
-
   // POST /auth/login – unchanged logic, just a tiny improvement
   static async login(req: AuthedRequest, res: Response) {
     try {
@@ -161,18 +158,24 @@ export class AuthController {
         password
       });
 
+      
       if (error) {
         console.error("signInWithPassword error:", error);
         return res.status(400).json({ message: error.message });
       }
-
+      
       const { session, user } = data;
+
+      const profile = await prisma.profile.findUnique({
+        where: { userId: user.id },
+      });
+      
 
       if (!user?.email_confirmed_at) {
         return res.status(403).json({ message: "Please verify your email with the OTP first" });
       }
 
-      return res.status(200).json(buildAuthResponse(session, user));
+      return res.status(200).json(buildAuthResponse(session, user, profile));
     } catch (err) {
       console.error("Login error:", err);
       return res.status(500).json({ message: "Something went wrong" });
@@ -181,16 +184,42 @@ export class AuthController {
 
   static async logout(req: AuthedRequest, res: Response) {
     try {
-      return res.status(200).json({ message: "Logged out (client should clear tokens)" });
+
+      console.log("Auth/session headers:", req.headers.authorization);
+
+      
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader?.startsWith("Bearer ")) {
+        // No token → from server POV you're already logged out
+        return res.status(200).json({ message: "Already logged out" });
+      }
+
+      const accessToken = authHeader.split(" ")[1];
+
+      // Supabase: revoke this session (refresh tokens etc.)
+      const { error } = await supabaseAdmin.auth.admin.signOut(accessToken);
+
+      if (error) {
+        console.error("Supabase admin.signOut error:", error);
+        return res
+          .status(500)
+          .json({ message: "Failed to revoke Supabase session" });
+      }
+
+      return res.status(200).json({ message: "Logged out successfully" });
     } catch (err) {
       console.error("Logout error:", err);
       return res.status(500).json({ message: "Something went wrong" });
     }
   }
 
+
+
+
   static async setSession(req: AuthedRequest, res: Response) {
     try {
-      const { data, error } = await supabaseAdmin.auth.setSession({access_token, refresh_token} );
+      const { data, error } = await supabaseAdmin.auth.setSession({access_token:'', refresh_token:""} );
       if (error) throw new Error(error.message ?? "Failed to get set session");
       return res.status(200).json(data);
     } catch (err) {
@@ -200,19 +229,38 @@ export class AuthController {
   }
 
   static async getSession(req: AuthedRequest, res: Response) {
-    try {
-      const { data, error } = await supabaseAdmin.auth.getSession();
-      if (error) throw new Error(error.message ?? "Failed to get session");
-      return res.status(200).json(data);
-    } catch (err) {
-      console.error("failed to get session:", err);
-      return res.status(500).json({ message: "Something went wrong getting session" });
+  try {
+    // 1. Get token from header
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(200).json({ session: null });
     }
+
+    const token = authHeader.replace("Bearer ", "");
+
+    // 2. Use Supabase auth to decode + verify token
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+
+    if (error || !data?.user) {
+      return res.status(200).json({ session: null });
+    }
+
+    // 3. Return session-like object
+    return res.status(200).json({
+      user: data.user,
+      accessToken: token,      // same token client sent
+      refreshToken: null       // (optional) remove if not used
+    });
+  } catch (err) {
+    console.log("SESSION ERROR:", err);
+    return res.status(200).json({ session: null });
   }
+}
 
   static async getUser(req: AuthedRequest, res: Response) {
     try {
-     const { data: { user }, error } = await supabaseAdmin.auth.getUser(access_token )
+     const { data: { user }, error } = await supabaseAdmin.auth.getUser( )
       if (error) throw new Error(error.message ?? "Failed to get user");
       return res.status(200).json(user);
     } catch (err) {
@@ -233,6 +281,58 @@ export class AuthController {
       return res.status(500).json({ message: "failed getUserIdentities" });
     }
   }
+
+  static async checkEmailAvailability (req:AuthedRequest,res:Response) {
+  try {
+    const { email } = (req.body || {}) as { email?: string };
+
+    if (!email) {
+      res.status(400).json({ message: "Email is required" });
+      return;
+    }
+
+    const existingProfile = await prisma.profile.findUnique({
+      where: { email }
+    });
+
+    if (existingProfile) {
+      res.status(409).json({ message: "Email is already in use!" });
+      return;
+    }
+
+    res.status(200).json({ message: "Email is available" });
+  } catch (error) {
+    console.error("checkEmailAvailability error:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+  static async checkUsernameAvailability(req:AuthedRequest,res:Response){
+   try {
+    const { username } = (req.body || {}) as { username?: string };
+
+    if (!username) {
+      res.status(400).json({ message: "username is required" });
+      return;
+    }
+
+    const existingProfile = await prisma.profile.findUnique({
+      where: { username }
+    });
+
+    if (existingProfile) {
+      res.status(409).json({ message: "username is already in use!" });
+      return;
+    }
+
+    res.status(200).json({ message: "username is available" });
+  } catch (error) {
+    console.error("checkusernameAvailability error:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
 }
+}
+
+
 
 

@@ -1,51 +1,102 @@
 import { Response } from "express";
 import { rawVideoBucket } from "../../lib/gcs";
 import { AuthedRequest } from "../auth/auth.middleware";
-import crypto from "crypto";
+import crypto, { randomUUID } from "crypto";
+import { supabaseAdmin } from "../../config/supabase";
 
-/**
- * POST /uploads/video-url
- * body: { contentType: string }  e.g. "video/mp4"
- */
-export async function getVideoUploadUrl(req: AuthedRequest, res: Response) {
+export async function getImageUploadUrl(req: AuthedRequest, res: Response) {
   try {
     const user = req.user;
     if (!user) {
       return res.status(401).json({ message: "Unauthenticated" });
     }
 
-    const { contentType } = req.body as { contentType?: string };
+    const { fileName, contentType } = req.body as {
+      fileName: string;
+      contentType?: string;
+    };
 
-    if (!contentType || !contentType.startsWith("video/")) {
-      return res.status(400).json({ message: "contentType must be a video/*" });
+    if (!fileName) {
+      return res.status(400).json({ message: "fileName is required" });
     }
 
-    const userId = user.id as string;
+    const ext = fileName.includes(".") ? fileName.split(".").pop() : "jpg";
 
-    // generate a unique object path in the raw bucket
-    const random = crypto.randomBytes(8).toString("hex");
-    const timestamp = Date.now();
-    const objectName = `raw/${userId}/${timestamp}-${random}.mp4`; // you can adjust extension
+    // path inside bucket – you can adjust this structure
+    const objectName = `posts/${user.id}/${Date.now()}-${randomUUID()}.${ext}`;
 
-    const file = rawVideoBucket.file(objectName);
+    // 1) signed upload URL (client will PUT the file here)
+    const { data, error } = await supabaseAdmin.storage
+      .from("post-images")
+      .createSignedUploadUrl(objectName);
 
-    const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    if (error || !data) {
+      console.error("createSignedUploadUrl error:", error);
+      return res.status(500).json({ message: "Could not create upload URL" });
+    }
 
-    const [uploadUrl] = await file.getSignedUrl({
-      version: "v4",
-      action: "write",
-      expires,
-      contentType
-    });
+    // 2) public URL (since bucket is public)
+    const { data: publicData } = supabaseAdmin.storage
+      .from("post-images")
+      .getPublicUrl(objectName);
+
+    const publicUrl = publicData?.publicUrl ?? null;
 
     return res.json({
-      uploadUrl,
-      objectName,
-      bucket: rawVideoBucket.name,
-      expiresAt: new Date(expires).toISOString()
+      uploadUrl: data.signedUrl, // use this for PUT
+      objectName,                // storage path
+      publicUrl,                 // use this in MediaFile.url
+      contentType: contentType ?? "image/jpeg"
     });
   } catch (err) {
-    console.error("getVideoUploadUrl error:", err);
+    console.error("getImageUploadUrl error:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
+
+/**
+ * POST /uploads/video-url
+ * body: { contentType: string }  e.g. "video/mp4"
+ */
+// export async function getVideoUploadUrl(req: AuthedRequest, res: Response) {
+//   try {
+//     const user = req.user;
+//     if (!user) {
+//       return res.status(401).json({ message: "Unauthenticated" });
+//     }
+
+//     const { contentType } = req.body as { contentType?: string };
+
+//     if (!contentType || !contentType.startsWith("video/")) {
+//       return res.status(400).json({ message: "contentType must be a video/*" });
+//     }
+
+//     const userId = user.id as string;
+
+//     // generate a unique object path in the raw bucket
+//     const random = crypto.randomBytes(8).toString("hex");
+//     const timestamp = Date.now();
+//     const objectName = `raw/${userId}/${timestamp}-${random}.mp4`; // you can adjust extension
+
+//     const file = rawVideoBucket.file(objectName);
+
+//     const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+//     const [uploadUrl] = await file.getSignedUrl({
+//       version: "v4",
+//       action: "write",
+//       expires,
+//       contentType
+//     });
+
+//     return res.json({
+//       uploadUrl,
+//       objectName,
+//       bucket: rawVideoBucket.name,
+//       expiresAt: new Date(expires).toISOString()
+//     });
+//   } catch (err) {
+//     console.error("getVideoUploadUrl error:", err);
+//     return res.status(500).json({ message: "Internal server error" });
+//   }
+// }

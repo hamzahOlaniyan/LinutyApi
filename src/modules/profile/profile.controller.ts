@@ -3,10 +3,24 @@ import { prisma } from "../../config/prisma";
 import { AuthedRequest } from "../auth/auth.middleware";
 
 
-// If you're using a custom Request type, adapt this
 
 export class ProfileController{
 
+  static async getProfiles(req: AuthedRequest, res: Response) {
+    try {
+
+      const profile = await prisma.profile.findMany({
+        where:{}
+      });
+
+      return res.json(profile);
+    } catch (error) {
+      console.error("getMyProfile error:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  }
+
+    // GET /profile/me
   static async getMyProfile(req: AuthedRequest, res: Response) {
     try {
       const userId = req.user.id;
@@ -316,4 +330,44 @@ export class ProfileController{
       return res.status(500).json({ message: "Internal server error" });
     }
   }
+
+  static async  completeMyProfile(req: AuthedRequest, res: Response) {
+  try {
+    const user = req.user;
+    if (!user) return res.status(401).json({ message: "Unauthenticated" });
+
+    const {
+      firstName,
+      lastName,
+      gender,
+      dateOfBirth,
+      country,
+      city,
+      district,
+      location,
+      bio
+    } = req.body;
+
+    const profile = await prisma.profile.update({
+      where: { userId: user.id },
+      data: {
+        firstName,
+        lastName,
+        gender,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        country,
+        city,
+        district,
+        location,
+        bio,
+        isProfileComplete: true
+      }
+    });
+
+    return res.json({ profile });
+  } catch (err) {
+    console.error("completeMyProfile error:", err);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+}
 }

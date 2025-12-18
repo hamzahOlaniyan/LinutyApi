@@ -7,50 +7,71 @@ datasource db {
 }
 
 model Profile {
-  id                      String                    @id @default(uuid()) @db.Uuid
-  userId                  String                    @unique @db.Uuid
-  firstName               String                    @default("")
-  lastName                String                    @default("")
-  username                String                    @unique
-  gender                  String?
-  dateOfBirth             DateTime?
-  email                   String                    @unique
-  country                 String?                   @default("")
-  city                    String?                   @default("")
-  district                String?                   @default("")
-  location                String                    @default("")
-  bio                     String                    @default("Connecting with amazing people and building great things together.")
-  countryCode             String?
-  avatarUrl               String?
-  coverUrl                String?
-  lineageMainSurname      String?
-  lineageRootVillage      String?
-  isVerified              Boolean                   @default(false)
-  createdAt               DateTime                  @default(now()) @db.Timestamptz(6)
-  updatedAt               DateTime                  @updatedAt @db.Timestamptz(6)
-  blocksAsBlocked         Block[]                   @relation("BlocksBlocked")
-  blocksAsBlocker         Block[]                   @relation("BlocksBlocker")
-  comments                Comment[]
-  commentReactions        CommentReaction[]
-  conversationsOwned      Conversation[]            @relation("ConversationsCreatedBy")
-  conversationMembers     ConversationParticipant[]
-  followsAsFollowee       Follow[]                  @relation("FollowsFollowee")
-  followsAsFollower       Follow[]                  @relation("FollowsFollower")
-  kinshipsA               Kinship[]                 @relation("ProfileAKinships")
-  kinshipsB               Kinship[]                 @relation("ProfileBKinships")
-  lineagesCreated         Lineage[]                 @relation("LineagesCreatedBy")
-  lineageMembershipsAdded LineageMembership[]       @relation("LineageMembershipsAddedBy")
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @unique @db.Uuid
+  firstName String @default("")
+  lastName  String @default("")
+  username  String @unique
+
+  gender      String?
+  dateOfBirth DateTime?
+
+  occupation String?
+  email      String  @unique
+  country    String? @default("")
+
+  city        String? @default("")
+  district    String? @default("")
+  location    String  @default("")
+  countryCode String?
+
+  bio       String  @default("Connecting with amazing people and building great things together.")
+  avatarUrl String?
+  coverUrl  String?
+
+  ethnicity          String?
+  lineageMainSurname String?
+  lineageRootVillage String?
+  isVerified         Boolean  @default(false)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+
+  blocksAsBlocked Block[] @relation("BlocksBlocked")
+  blocksAsBlocker Block[] @relation("BlocksBlocker")
+
+  comments         Comment[]
+  commentReactions CommentReaction[]
+
+  conversationsOwned  Conversation[]            @relation("ConversationsCreatedBy")
+  conversationMembers ConversationParticipant[]
+
+  followsAsFollowee Follow[] @relation("FollowsFollowee")
+  followsAsFollower Follow[] @relation("FollowsFollower")
+
+  kinshipsA Kinship[] @relation("ProfileAKinships")
+  kinshipsB Kinship[] @relation("ProfileBKinships")
+
+  lineagesCreated         Lineage[]           @relation("LineagesCreatedBy")
+  lineageMembershipsAdded LineageMembership[] @relation("LineageMembershipsAddedBy")
   lineageMemberships      LineageMembership[]
-  messages                Message[]
-  messageReads            MessageRead[]
-  mutesAsMuted            Mute[]                    @relation("MutesMuted")
-  mutesAsMuter            Mute[]                    @relation("MutesMuter")
-  notificationsAsActor    Notification[]            @relation("NotificationsActor")
-  notifications           Notification[]            @relation("NotificationsRecipient")
-  posts                   Post[]
-  postReactions           PostReaction[]
-  interests               ProfileInterest[]
-  settings                ProfileSettings?
+
+  messages     Message[]
+  messageReads MessageRead[]
+
+  mutesAsMuted Mute[] @relation("MutesMuted")
+  mutesAsMuter Mute[] @relation("MutesMuter")
+
+  notificationsAsActor Notification[] @relation("NotificationsActor")
+  notifications        Notification[] @relation("NotificationsRecipient")
+
+  posts         Post[]
+  postReactions PostReaction[]
+
+  interests ProfileInterest[]
+
+  settings ProfileSettings?
+
+  isProfileComplete Boolean @default(false)
 
   @@map("profile")
 }
@@ -177,7 +198,7 @@ model MediaFile {
   mimeType  String
   width     Int?
   height    Int?
-  sizeBytes BigInt
+  sizeBytes Int
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -186,19 +207,28 @@ model MediaFile {
 }
 
 model Comment {
-  id              String            @id @default(uuid()) @db.Uuid
-  postId          String            @db.Uuid
-  profileId       String            @db.Uuid
-  parentCommentId String?           @db.Uuid
+  id              String  @id @default(uuid()) @db.Uuid
+  postId          String  @db.Uuid
+  profileId       String  @db.Uuid
   content         String
-  likeCount       Int               @default(0)
-  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
-  parentComment   Comment?          @relation("CommentToReplies", fields: [parentCommentId], references: [id])
-  replies         Comment[]         @relation("CommentToReplies")
-  post            Post              @relation(fields: [postId], references: [id])
-  author          Profile           @relation(fields: [profileId], references: [id])
-  reactions       CommentReaction[]
-  notifications   Notification[]
+  parentCommentId String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @default(now())
+
+  post   Post    @relation(fields: [postId], references: [id])
+  author Profile @relation(fields: [profileId], references: [id])
+
+  parentComment Comment?  @relation("CommentToReplies", fields: [parentCommentId], references: [id])
+  replies       Comment[] @relation("CommentToReplies")
+
+  likeCount Int @default(0)
+
+  reactions     CommentReaction[]
+  notifications Notification[]
+
+  @@index([postId, parentCommentId, createdAt])
+  @@index([parentCommentId, createdAt])
 }
 
 model PostReaction {
@@ -281,6 +311,9 @@ model Notification {
   message     Message?         @relation(fields: [messageId], references: [id])
   post        Post?            @relation(fields: [postId], references: [id])
   recipient   Profile          @relation("NotificationsRecipient", fields: [recipientId], references: [id])
+
+  // @@unique([recipientId, actorId, type, postId])
+
 }
 
 model Interest {

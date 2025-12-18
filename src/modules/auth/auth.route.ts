@@ -1,5 +1,3 @@
-
-
 import { Router } from "express";
 import { AuthController } from "./auth.controller";
 
@@ -25,7 +23,9 @@ router.get("/user-identities", AuthController.getUserIdentities);
 
 router.post("/set-session", AuthController.setSession);
 
+router.post("/check-email", AuthController.checkEmailAvailability);
 
+router.post("/check-username", AuthController.checkUsernameAvailability);
 
 
 

@@ -4,13 +4,25 @@ import { z } from "zod";
 export const createPostSchema = z.object({
   content: z.string().max(5000).optional(),
 
-  visibility: z
-    .enum(["PUBLIC", "FOLLOWERS", "LINEAGE_ONLY", "PRIVATE"])
-    .optional(),
+  // visibility: z
+  //   .enum(["PUBLIC", "FOLLOWERS", "LINEAGE_ONLY", "PRIVATE"])
+  //   .optional(),
 
-  lineageId: z.string().uuid().optional(),
+  // lineageId: z.string().uuid().optional(),
 
   // For now: single video per post (you can expand later)
+  images: z
+    .array(
+      z.object({
+        url: z.string().url("Invalid image url"),
+        mimeType: z.string().optional(),
+        width: z.number().int().optional(),
+        height: z.number().int().optional(),
+        sizeBytes: z.number().int().optional()
+      })
+    )
+    .optional(),
+
   video: z
     .object({
       rawObjectName: z.string().min(1, "rawObjectName is required"),

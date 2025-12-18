@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { AuthedRequest } from "../auth/auth.middleware";
 import { NotificationService } from "../notification/notification.service";
 import { prisma } from "../../config/prisma";
+import { id } from "zod/v4/locales";
 
 
 // helper: current profile
@@ -33,6 +34,27 @@ export async function createComment(req: AuthedRequest, res: Response) {
     if (!content || !content.trim()) {
       return res.status(400).json({ message: "Content is required" });
     }
+
+          if (parentCommentId) {
+            const parent = await prisma.comment.findUnique({
+              where: { id: parentCommentId },
+              select: { id: true, postId: true, parentCommentId: true }
+            });
+
+            // ✅ parent must exist and belong to this post
+            if (!parent || parent.postId !== postId) {
+              return res.status(400).json({ message: "Invalid parentId" });
+            }
+
+            // ✅ one-level replies only
+            if (parent.parentCommentId) {
+              return res
+                .status(400)
+                .json({ message: "Only one level of replies allowed" });
+            }
+      }
+
+
 
     const post = await prisma.post.findUnique({
       where: { id: postId }
@@ -141,6 +163,44 @@ export async function getPostComments(req: Request, res: Response) {
   }
 }
 
+export async function getCommentReplies(req: AuthedRequest, res: Response) {
+  try {
+    const commentId = req.params.commentId;
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
+    const cursor = req.query.cursor as string | undefined;
+
+     const parent = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true }
+    });
+
+    const count = await prisma.comment.count({
+      where: { parentCommentId: commentId }
+    });
+
+    const replies = await prisma.comment.findMany({
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      where: { parentCommentId: commentId },
+      orderBy: { createdAt: "asc" }, // replies read nicely oldest→newest
+      include: {
+        author: {
+          select: { id: true, username: true, firstName: true, lastName: true, avatarUrl: true }
+        }
+      }
+    });
+
+    let nextCursor: string | null = null;
+    if (replies.length > limit) nextCursor = replies.pop()?.id ?? null;
+
+    return res.json({ data: replies, nextCursor });
+  } catch (e) {
+    console.error("getCommentReplies error:", e);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+
 /**
  * PATCH /comments/:commentId
  * body: { content: string }
@@ -238,11 +298,14 @@ export async function reactToComment(req: AuthedRequest, res: Response) {
     const { type = "LIKE" } = req.body as { type?: "LIKE" | "LOVE" | "LAUGH" | "ANGRY" | "SAD" };
 
     const comment = await prisma.comment.findUnique({
-      where: { id: commentId }
+      where: { id: commentId },
+      select: { id: true, postId: true, profileId: true }
     });
     if (!comment) {
       return res.status(404).json({ message: "Comment not found" });
     }
+
+    const isSelf = comment.profileId === me.id;
 
     const existing = await prisma.commentReaction.findUnique({
       where: {
@@ -253,38 +316,114 @@ export async function reactToComment(req: AuthedRequest, res: Response) {
       }
     });
 
-    let reaction;
-
+    // 1) create
     if (!existing) {
-      reaction = await prisma.commentReaction.create({
-        data: {
-          commentId,
-          profileId: me.id,
-          type
+      const reaction = await prisma.$transaction(async (tx) => {
+        const created = await tx.commentReaction.create({
+          data: { commentId, profileId: me.id, type }
+        });
+
+        await tx.comment.update({
+          where: { id: commentId },
+          data: { likeCount: { increment: 1 } }
+        });
+
+        if (!isSelf) {
+          await tx.notification.create({
+            data: {
+              recipientId: comment.profileId,
+              actorId: me.id,
+              type: "LIKE",
+              postId: comment.postId,
+              commentId
+            }
+          });
         }
+
+        return created;
       });
-    } else {
-      reaction = await prisma.commentReaction.update({
-        where: { id: existing.id },
-        data: { type }
-      });
+
+      return res.status(201).json({ message: "Reaction added", reacted: true, reaction });
     }
 
-    const likeCount = await prisma.commentReaction.count({
-      where: {
-        commentId,
-        type: "LIKE"
+    // 2) toggle off
+    if (existing.type === type) {
+      await prisma.$transaction(async (tx) => {
+        await tx.commentReaction.delete({ where: { id: existing.id } });
+
+        await tx.comment.update({
+          where: { id: commentId },
+          data: { likeCount: { decrement: 1 } }
+        });
+
+        if (!isSelf) {
+          await tx.notification.deleteMany({
+            where: {
+              recipientId: comment.profileId,
+              actorId: me.id,
+              type: "LIKE",
+              commentId
+            }
+          });
+        }
+      });
+
+      return res.json({ message: "Reaction removed", reacted: false });
+    }
+
+    // 3) update type
+    const reaction = await prisma.commentReaction.update({
+      where: { id: existing.id },
+      data: { type }
+    });
+
+    // ensure notif exists (avoid duplicates)
+    if (!isSelf) {
+      const notif = await prisma.notification.findFirst({
+        where: {
+          recipientId: comment.profileId,
+          actorId: me.id,
+          type: "LIKE",
+          commentId
+        },
+        select: { id: true }
+      });
+
+      if (!notif) {
+        await NotificationService.likeComment(comment.profileId, me.id, comment.postId, commentId);
       }
+    }
+
+    return res.json({ message: "Reaction updated", reacted: true, reaction });
+  } catch (e) {
+    console.error("reactToComment error:", e);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function  getMyCommentReaction(req: AuthedRequest, res: Response) {
+  try {
+    const me = await getCurrentProfile(req);
+    if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+    const { commentId } = req.params;
+
+    const reaction = await prisma.commentReaction.findUnique({
+      where: {
+        commentId_profileId: {
+          commentId,
+          profileId: me.id
+        }
+      },
+      select: { type: true }
     });
 
-    await prisma.comment.update({
-      where: { id: commentId },
-      data: { likeCount }
+    return res.json({
+      liked: !!reaction,
+      type: reaction?.type ?? null
     });
-
-    return res.json({ reaction, likeCount });
-  } catch (error) {
-    console.error("reactToComment error:", error);
+  } catch (err) {
+    console.error("getMyPostReaction error:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -324,3 +463,5 @@ export async function removeCommentReaction(req: AuthedRequest, res: Response) {
     return res.status(500).json({ message: "Internal server error" });
   }
 }
+
+

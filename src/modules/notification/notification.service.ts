@@ -20,7 +20,7 @@ export class NotificationService {
       postId = null,
       commentId = null,
       lineageId = null,
-      messageId = null
+      messageId = null,
     } = input;
 
     // avoid self-notifications
@@ -34,7 +34,7 @@ export class NotificationService {
         postId,
         commentId,
         lineageId,
-        messageId
+        messageId,
       }
     });
   }
@@ -57,6 +57,22 @@ export class NotificationService {
       type: NotificationType.LIKE
     });
   }
+
+  static async likeComment(
+  recipientId: string,
+  actorId: string,
+  postId: string,
+  commentId: string
+) {
+  return this.create({
+    recipientId,
+    actorId,
+    postId,
+    commentId,
+    type: NotificationType.LIKE
+  });
+}
+
 
   static async comment(
     recipientId: string,

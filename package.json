@@ -6,12 +6,16 @@
    "type": "commonjs",
    "scripts": {
       "test": "echo \"Error: no test specified\" && exit 1",
-      "dev": "nodemon",
+      "dev": "nodemon ts-node-dev src/index.ts",
       "build": "tsc",
       "start": "node dist/index.js",
+      "seed": "prisma db seed",
       "docker-build": "docker build -t gcr.io//$PROJECT_ID/$SERVICE_NAME .",
       "docker-push": "docker push gcr.io//$PROJECT_ID/$SERVICE_NAME",
       "deploy": "gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME && gcloud run deploy $SERVICE_NAME --image gcr.io/$PROJECT_ID/$SERVICE_NAME --platform managed --allow-unauthenticated"
+   },
+   "prisma": {
+      "seed": "ts-node prisma/seed.ts"
    },
    "repository": {
       "type": "git",
@@ -33,20 +37,25 @@
       "bcryptjs": "^3.0.3",
       "cors": "^2.8.5",
       "express": "^5.1.0",
+      "faker-js": "^1.0.0",
+      "jsonwebtoken": "^9.0.3",
+      "multer": "^2.0.2",
       "nodemon": "^3.1.11",
-      "swagger-jsdoc": "^6.2.8",
-      "swagger-ui-express": "^5.0.1",
       "zod": "^4.1.13"
    },
    "devDependencies": {
+      "@faker-js/faker": "^10.1.0",
       "@types/cors": "^2.8.19",
-      "@types/node": "^24.10.1",
+      "@types/jsonwebtoken": "^9.0.10",
+      "@types/multer": "^2.0.0",
+      "@types/node": "^24.10.3",
       "@types/pg": "^8.15.6",
       "@types/swagger-jsdoc": "^6.0.4",
       "@types/swagger-ui-express": "^4.1.8",
       "dotenv": "^17.2.3",
       "prisma": "^7.0.0",
       "ts-node": "^10.9.2",
+      "ts-node-dev": "^2.0.0",
       "typescript": "^5.9.3"
    },
    "directories": {

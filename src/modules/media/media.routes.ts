@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { markMediaHlsReady } from "./media.controller";
+import {  MediaFileController } from "./media.controller";
 
 const router = Router();
 
 // internal callback from transcoder
-router.post("/hls-ready", markMediaHlsReady);
+router.post("/hls-ready", MediaFileController.markMediaHlsReady);
+
 
 export default router;

@@ -7,7 +7,6 @@ import { CreatePostInput } from "./post.validation";
 import type { MediaFile } from "@prisma/client";
 
 
-
 function toJsonMedia(m: MediaFile) {
   return {
     ...m,
@@ -25,219 +24,190 @@ async function getCurrentProfile(req: AuthedRequest) {
 }
 
 export class PostController {
-/**
- * POST /posts/
- */
-static async  createPost(req: AuthedRequest, res: Response) {
-  try {
-    
-    const me = await getCurrentProfile(req);
-    if (!me) return res.status(401).json({ message: "Unauthenticated" });
+  /**
+   * POST /posts/
+   */
+  static async  createPost(req: AuthedRequest, res: Response) {
+    try {
+      
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
 
-    const body = req.body as MediaFile;
+      const body = req.body as MediaFile;
 
-      const { content, images } = req.body as {
-        content?: string;
-        images?: Array<{
-          url: string;
-          mimeType?: string;
-          sizeBytes?: number;
-          width?: number;
-          height?: number;
-        }>;
-      };
+        const { content, images } = req.body as {
+          content?: string;
+          images?: Array<{
+            url: string;
+            mimeType?: string;
+            sizeBytes?: number;
+            width?: number;
+            height?: number;
+          }>;
+        };
 
-      if (!content?.trim() && (!images || images.length === 0)) {
-        return res.status(400).json({ message: "Post must have content or images" });
-      }
-   
-
-    // 1) Create the post
-       const post = await prisma.post.create({
-        data: {
-          profileId: me.id,
-          content: content?.trim() || null
-          
+        if (!content?.trim() && (!images || images.length === 0)) {
+          return res.status(400).json({ message: "Post must have content or images" });
         }
-      });
-   
-     let imageMedia: MediaFile[] = [];
-
-      if (images?.length) {
-        imageMedia = await prisma.$transaction(
-          images.map((img) =>
-            prisma.mediaFile.create({
-              data: {
-                postId: post.id,
-                type: "IMAGE",
-                url: img.url,
-                mimeType: img.mimeType ?? "image/jpeg",
-                sizeBytes: img.sizeBytes ?? 0, // IMPORTANT if your schema uses BigInt
-                width: img.width ?? null,
-                height: img.height ?? null
-              }
-            })
-          )
-        );
-      }
     
-    // let mediaFile = null;
 
-    // 2) If there is a video, create MediaFile in PROCESSING state and call transcoder
-    // if (video) {
-    //   mediaFile = await prisma.mediaFile.create({
-    //     data: {
-    //       postId: post.id,
-    //       type: "VIDEO",
-    //       url: "", // will be filled later with HLS master.m3u8 URL
-    //       mimeType: video.mimeType ?? "video/mp4",
-    //       sizeBytes: video.sizeBytes ? BigInt(video.sizeBytes) : BigInt(0),
-    //       width: video.width ?? null,
-    //       height: video.height ?? null,
-    //       // status: "PROCESSING" // if you added MediaStatus enum
-    //     }
-    //   });
-
-    //   // fire-and-forget call to transcoder
-    //   const transcoderUrl = process.env.TRANSCODER_URL;
-    //   const callbackSecret = process.env.API_CALLBACK_SECRET;
-
-    //   if (transcoderUrl) {
-    //     // Node 18+ has global fetch; if not, install node-fetch
-    //     fetch(`${transcoderUrl}/transcode`, {
-    //       method: "POST",
-    //       headers: {
-    //         "Content-Type": "application/json",
-    //         "x-linutyauth": callbackSecret ?? ""
-    //       },
-    //       body: JSON.stringify({
-    //         rawObjectName: video.rawObjectName,
-    //         postId: post.id
-    //       })
-    //     }).catch(err => {
-    //       console.error("Error calling transcoder:", err);
-    //     });
-    //   } else {
-    //     console.warn("TRANSCODER_URL is not set; video will never be processed.");
-    //   }
-    // }
-
-    return res.status(201).json({
-      data: post,
-      images: imageMedia.map(toJsonMedia),
-      message: "Post created successfully"
-    });
-  } catch (err) {
-    console.error("createPost error:", err);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-}
-
-/**
- * GET /posts/:postId
- */
-static async getPostById(req: Request, res: Response) {
-  try {
-    const { postId } = req.params;
-
-    const post = await prisma.post.findUnique({
-      where: { id: postId },
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-            isVerified: true
-          }
-        },
-        mediaFiles: true,
-        lineage: true
-      }
-    });
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-
-    return res.status(200).json(post);
-  } catch (error) {
-    console.error("getPostById error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-}
-static async reactToPost(req: AuthedRequest, res: Response) {
-  try {
-    const me = await getCurrentProfile(req);
-    if (!me) return res.status(401).json({ message: "Unauthenticated" });
-
-    const { postId } = req.params;
-    const { type = "LIKE" } = req.body as { type?: ReactionType };
-
-    const post = await prisma.post.findUnique({
-      where: { id: postId },
-      select: { id: true, profileId: true }
-    });
-    if (!post) return res.status(404).json({ message: "Post not found" });
-
-    const isSelf = post.profileId === me.id;
-
-    const existing = await prisma.postReaction.findUnique({
-      where: {
-        postId_profileId: { postId, profileId: me.id }
-      }
-    });
-
-    // 1) No reaction -> create + increment + notify
-    if (!existing) {
-      const reaction = await prisma.$transaction(async (tx) => {
-        const created = await tx.postReaction.create({
-          data: { postId, profileId: me.id, type }
-        });
-
-        await tx.post.update({
-          where: { id: postId },
-          data: { likeCount: { increment: 1 } }
-        });
-
-        // ✅ Notification (not in tx unless your service accepts tx)
-        return created;
-      });
-
-      if (!isSelf) {
-        // prevent duplicates if user taps fast, etc.
-        await prisma.notification.deleteMany({
-          where: {
-            recipientId: post.profileId,
-            actorId: me.id,
-            type: "LIKE",
-            postId
+      // 1) Create the post
+        const post = await prisma.post.create({
+          data: {
+            profileId: me.id,
+            content: content?.trim() || null
+            
           }
         });
-        await NotificationService.likePost(post.profileId, me.id, postId);
-      }
+    
+      let imageMedia: MediaFile[] = [];
+
+        if (images?.length) {
+          imageMedia = await prisma.$transaction(
+            images.map((img) =>
+              prisma.mediaFile.create({
+                data: {
+                  postId: post.id,
+                  type: "IMAGE",
+                  url: img.url,
+                  mimeType: img.mimeType ?? "image/jpeg",
+                  sizeBytes: img.sizeBytes ?? 0, // IMPORTANT if your schema uses BigInt
+                  width: img.width ?? null,
+                  height: img.height ?? null
+                }
+              })
+            )
+          );
+        }
+      
+      // let mediaFile = null;
+
+      // 2) If there is a video, create MediaFile in PROCESSING state and call transcoder
+      // if (video) {
+      //   mediaFile = await prisma.mediaFile.create({
+      //     data: {
+      //       postId: post.id,
+      //       type: "VIDEO",
+      //       url: "", // will be filled later with HLS master.m3u8 URL
+      //       mimeType: video.mimeType ?? "video/mp4",
+      //       sizeBytes: video.sizeBytes ? BigInt(video.sizeBytes) : BigInt(0),
+      //       width: video.width ?? null,
+      //       height: video.height ?? null,
+      //       // status: "PROCESSING" // if you added MediaStatus enum
+      //     }
+      //   });
+
+      //   // fire-and-forget call to transcoder
+      //   const transcoderUrl = process.env.TRANSCODER_URL;
+      //   const callbackSecret = process.env.API_CALLBACK_SECRET;
+
+      //   if (transcoderUrl) {
+      //     // Node 18+ has global fetch; if not, install node-fetch
+      //     fetch(`${transcoderUrl}/transcode`, {
+      //       method: "POST",
+      //       headers: {
+      //         "Content-Type": "application/json",
+      //         "x-linutyauth": callbackSecret ?? ""
+      //       },
+      //       body: JSON.stringify({
+      //         rawObjectName: video.rawObjectName,
+      //         postId: post.id
+      //       })
+      //     }).catch(err => {
+      //       console.error("Error calling transcoder:", err);
+      //     });
+      //   } else {
+      //     console.warn("TRANSCODER_URL is not set; video will never be processed.");
+      //   }
+      // }
 
       return res.status(201).json({
-        message: "Reaction added",
-        reacted: true,
-        reaction
+        data: post,
+        images: imageMedia.map(toJsonMedia),
+        message: "Post created successfully"
       });
+    } catch (err) {
+      console.error("createPost error:", err);
+      return res.status(500).json({ message: "Internal server error" });
     }
+  }
 
-    // 2) Same type -> toggle off + decrement + delete notif
-    if (existing.type === type) {
-      await prisma.$transaction(async (tx) => {
-        await tx.postReaction.delete({ where: { id: existing.id } });
+  /**
+   * GET /posts/:postId
+   */
+  static async getPostById(req: Request, res: Response) {
+    try {
+      const { postId } = req.params;
 
-        await tx.post.update({
-          where: { id: postId },
-          data: { likeCount: { decrement: 1 } }
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              isVerified: true
+            }
+          },
+          mediaFiles: true,
+          lineage: true
+        }
+      });
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      return res.status(200).json(post);
+    } catch (error) {
+      console.error("getPostById error:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  }
+  static async reactToPost(req: AuthedRequest, res: Response) {
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+      const { postId } = req.params;
+      const { type = "LIKE" } = req.body as { type?: ReactionType };
+
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+        select: { id: true, profileId: true }
+      });
+      if (!post) return res.status(404).json({ message: "Post not found" });
+
+      const isSelf = post.profileId === me.id;
+
+      const existing = await prisma.postReaction.findUnique({
+        where: {
+          postId_profileId: { postId, profileId: me.id }
+        }
+      });
+
+      // 1) No reaction -> create + increment + notify
+      if (!existing) {
+        const reaction = await prisma.$transaction(async (tx) => {
+          const created = await tx.postReaction.create({
+            data: { postId, profileId: me.id, type }
+          });
+
+          await tx.post.update({
+            where: { id: postId },
+            data: { likeCount: { increment: 1 } }
+          });
+
+          // ✅ Notification (not in tx unless your service accepts tx)
+          return created;
         });
 
         if (!isSelf) {
-          await tx.notification.deleteMany({
+          // prevent duplicates if user taps fast, etc.
+          await prisma.notification.deleteMany({
             where: {
               recipientId: post.profileId,
               actorId: me.id,
@@ -245,152 +215,320 @@ static async reactToPost(req: AuthedRequest, res: Response) {
               postId
             }
           });
+          await NotificationService.likePost(post.profileId, me.id, postId);
         }
+
+        return res.status(201).json({
+          message: "Reaction added",
+          reacted: true,
+          reaction
+        });
+      }
+
+      // 2) Same type -> toggle off + decrement + delete notif
+      if (existing.type === type) {
+        await prisma.$transaction(async (tx) => {
+          await tx.postReaction.delete({ where: { id: existing.id } });
+
+          await tx.post.update({
+            where: { id: postId },
+            data: { likeCount: { decrement: 1 } }
+          });
+
+          if (!isSelf) {
+            await tx.notification.deleteMany({
+              where: {
+                recipientId: post.profileId,
+                actorId: me.id,
+                type: "LIKE",
+                postId
+              }
+            });
+          }
+        });
+
+        return res.json({
+          message: "Reaction removed",
+          reacted: false
+        });
+      }
+
+      // 3) Different type -> update (no count change) + ensure notif exists
+      const reaction = await prisma.postReaction.update({
+        where: { id: existing.id },
+        data: { type }
+      });
+
+      if (!isSelf) {
+        // Ensure at least one LIKE notification exists (no duplicates)
+        const existingNotif = await prisma.notification.findFirst({
+          where: {
+            recipientId: post.profileId,
+            actorId: me.id,
+            type: "LIKE",
+            postId
+          },
+          select: { id: true }
+        });
+
+        if (!existingNotif) {
+          await NotificationService.likePost(post.profileId, me.id, postId);
+        }
+      }
+
+      return res.json({
+        message: "Reaction updated",
+        reacted: true,
+        reaction
+      });
+    } catch (error) {
+      console.error("reactToPost error:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  }
+
+  static async getMyPostReaction(req: AuthedRequest, res: Response) {
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+      const { postId } = req.params;
+
+      const reaction = await prisma.postReaction.findUnique({
+        where: {
+          postId_profileId: {
+            postId,
+            profileId: me.id
+          }
+        },
+        select: { type: true }
       });
 
       return res.json({
-        message: "Reaction removed",
-        reacted: false
+        liked: !!reaction,
+        type: reaction?.type ?? null
       });
+    } catch (err) {
+      console.error("getMyPostReaction error:", err);
+      return res.status(500).json({ message: "Internal server error" });
     }
+  }
 
-    // 3) Different type -> update (no count change) + ensure notif exists
-    const reaction = await prisma.postReaction.update({
-      where: { id: existing.id },
-      data: { type }
-    });
-
-    if (!isSelf) {
-      // Ensure at least one LIKE notification exists (no duplicates)
-      const existingNotif = await prisma.notification.findFirst({
-        where: {
-          recipientId: post.profileId,
-          actorId: me.id,
-          type: "LIKE",
-          postId
-        },
-        select: { id: true }
-      });
-
-      if (!existingNotif) {
-        await NotificationService.likePost(post.profileId, me.id, postId);
+  /**
+   * DELETE /posts/:postId
+   * only author can delete
+   */
+  static async deletePost(req: AuthedRequest, res: Response) {
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) {
+        return res.status(401).json({ message: "Unauthenticated" });
       }
-    }
 
-    return res.json({
-      message: "Reaction updated",
-      reacted: true,
-      reaction
+      const { postId } = req.params;
+
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+        select: { id: true, profileId: true }
+      });
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      if (post.profileId !== me.id) {
+        return res.status(403).json({ message: "Not allowed to delete this post" });
+      }
+
+      await prisma.post.delete({ where: { id: postId } });
+
+      return res.status(200).json({ message: "Post deleted " });
+    } catch (error) {
+      console.error("deletePost error:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  }
+  /**
+   * PATCH /posts/:postId
+   * update content / visibility / locationText
+   */
+  static async updatePost(req: AuthedRequest, res: Response) {
+      try {
+        const me = await getCurrentProfile(req);
+        if (!me) {
+          return res.status(401).json({ message: "Unauthenticated" });
+        }
+
+        const { postId } = req.params;
+        const { content } = req.body;
+
+        const post = await prisma.post.findUnique({
+          where: { id: postId },
+          select: { id: true, profileId: true }
+        });
+
+        if (!post) {
+          return res.status(404).json({ message: "Post not found" });
+        }
+
+        if (post.profileId !== me.id) {
+          return res.status(403).json({ message: "Not allowed to edit this post" });
+        }
+
+        const updated = await prisma.post.update({
+          where: { id: postId },
+          data: {
+            content
+          }
+        });
+
+        return res.json(updated);
+      } catch (error) {
+        console.error("updatePost error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+  }
+
+  static async updatePostContent(req: AuthedRequest, res: Response) {
+  try {
+    const me = await getCurrentProfile(req);
+    if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+    const { postId } = req.params;
+    const { content } = req.body as { content?: string };
+
+    const post = await prisma.post.findUnique({ where: { id: postId } });
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (post.profileId !== me.id) return res.status(403).json({ message: "Forbidden" });
+
+    const updated = await prisma.post.update({
+      where: { id: postId },
+      data: { content: content?.trim() || null }
     });
+
+    return res.status(200).json(updated);
   } catch (error) {
-    console.error("reactToPost error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.log("failed to update post ❌", error);
+    return res.status(500).json({ message: "Server error" });
   }
 }
 
 
-static async getMyPostReaction(req: AuthedRequest, res: Response) {
+ static async addPostMedia(req: AuthedRequest, res: Response) {
   try {
     const me = await getCurrentProfile(req);
     if (!me) return res.status(401).json({ message: "Unauthenticated" });
 
     const { postId } = req.params;
 
-    const reaction = await prisma.postReaction.findUnique({
-      where: {
-        postId_profileId: {
-          postId,
-          profileId: me.id
-        }
-      },
-      select: { type: true }
-    });
+    const { images } = req.body as {
+      images?: Array<{
+        url: string;
+        mimeType?: string;
+        sizeBytes?: number;
+        width?: number | null;
+        height?: number | null;
+      }>;
+    };
 
-    return res.json({
-      liked: !!reaction,
-      type: reaction?.type ?? null
-    });
-  } catch (err) {
-    console.error("getMyPostReaction error:", err);
-    return res.status(500).json({ message: "Internal server error" });
+    if (!images?.length) {
+      return res.status(400).json({ message: "No images provided" });
+    }
+
+    // optional: verify post exists (and belongs to user)
+    const post = await prisma.post.findUnique({ where: { id: postId } });
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (post.profileId !== me.id) return res.status(403).json({ message: "Forbidden" });
+
+    const created = await prisma.$transaction(
+      images.map((img) =>
+        prisma.mediaFile.create({
+          data: {
+            postId,
+            type: "IMAGE",
+            url: img.url,
+            mimeType: img.mimeType ?? "image/jpeg",
+            sizeBytes: img.sizeBytes ?? 0,
+            width: img.width ?? null,
+            height: img.height ?? null
+          }
+        })
+      )
+    );
+
+    return res.status(201).json(created);
+  } catch (error) {
+    console.log("failed to add post media ❌", error);
+    return res.status(500).json({ message: "Server error" });
   }
 }
 
-
-/**
- * DELETE /posts/:postId
- * only author can delete
- */
-static async deletePost(req: AuthedRequest, res: Response) {
+static async getMediaByPostId(req: AuthedRequest, res: Response) {
   try {
     const me = await getCurrentProfile(req);
-    if (!me) {
-      return res.status(401).json({ message: "Unauthenticated" });
-    }
+    if (!me) return res.status(401).json({ message: "Unauthenticated" });
 
     const { postId } = req.params;
 
-    const post = await prisma.post.findUnique({
-      where: { id: postId },
-      select: { id: true, profileId: true }
-    });
+    const post = await prisma.post.findUnique({ where: { id: postId } });
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (post.profileId !== me.id) return res.status(403).json({ message: "Forbidden" });
 
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
 
-    if (post.profileId !== me.id) {
-      return res.status(403).json({ message: "Not allowed to delete this post" });
-    }
+    const media = await prisma.mediaFile.findMany({ where: { postId }, });
+    if (!media) return res.status(404).json({ message: "Media not found" });
 
-    await prisma.post.delete({ where: { id: postId } });
-
-    return res.status(200).json({ message: "Post deleted " });
+    return res.status(200).json(media);
   } catch (error) {
-    console.error("deletePost error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.log("failed to delete media ❌", error);
+    return res.status(500).json({ message: "Server error" });
   }
 }
-/**
- * PATCH /posts/:postId
- * update content / visibility / locationText
- */
-static async updatePost(req: AuthedRequest, res: Response) {
+
+static async deleteMedia(req: AuthedRequest, res: Response) {
   try {
     const me = await getCurrentProfile(req);
-    if (!me) {
-      return res.status(401).json({ message: "Unauthenticated" });
+    if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+    const { mediaId } = req.params; // ✅ correct param name
+    if (!mediaId) return res.status(400).json({ message: "mediaId is required" });
+
+    const media = await prisma.mediaFile.findUnique({ where: { id: mediaId } });
+    if (!media) return res.status(404).json({ message: "Media not found" });
+
+    const post = await prisma.post.findUnique({ where: { id: media.postId } });
+    if (!post || post.profileId !== me.id) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
-    const { postId } = req.params;
-    const { content } = req.body;
-
-    const post = await prisma.post.findUnique({
-      where: { id: postId },
-      select: { id: true, profileId: true }
-    });
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" });
-    }
-
-    if (post.profileId !== me.id) {
-      return res.status(403).json({ message: "Not allowed to edit this post" });
-    }
-
-    const updated = await prisma.post.update({
-      where: { id: postId },
-      data: {
-        content
-      }
-    });
-
-    return res.json(updated);
+    await prisma.mediaFile.delete({ where: { id: mediaId } });
+    return res.status(204).send();
   } catch (error) {
-    console.error("updatePost error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.log("failed to delete media ❌", error);
+    return res.status(500).json({ message: "Server error" });
   }
 }
+
+
+
+
+
+  // static async updatePostContent(req: AuthedRequest, res: Response) {
+  // try {
+  //   const { postId } = req.params;
+  //   const { content } = req.body as { content: string };
+
+  //   const post = await prisma.post.update({
+  //     where: { id: postId },
+  //     data: { content },
+  //   });
+
+  //   return res.status(200).json(post);
+  // } catch (e) {
+  //   return res.status(500).json({ message: "Failed to update post" });
+  // }
+  // }
+
 }
 
 

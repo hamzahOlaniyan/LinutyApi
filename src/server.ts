@@ -13,6 +13,8 @@ import discoveryRoutes from "./modules/discovery/discovery.route";
 import uploadRoutes from "./modules/upload/upload.routes";
 import mediaRoutes from "./modules/media/media.routes";
 import searchRoutes from "./modules/search/search.route";
+import productRoutes from "./modules/Product/product.route";
+
 import { supabaseAuth, AuthedRequest } from "./modules/auth/auth.middleware";
 import { prisma } from "./config/prisma";
 import "dotenv/config"
@@ -31,8 +33,9 @@ app.use("/auth", authRoutes);
 app.use("/feed", feedRoutes);
 app.use("/profile", profileRoutes);
 app.use("/post", postRoutes);
-app.use("/", commentRoutes);
+app.use("/product", productRoutes);
 
+app.use("/", commentRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/conversations", chatRoutes);
 app.use("/lineages", lineageRoutes);
@@ -41,6 +44,8 @@ app.use("/discovery", discoveryRoutes);
 app.use("/search", searchRoutes);
 app.use("/internal/media", mediaRoutes);
 app.use("/uploads", uploadRoutes);
+app.use("/store", uploadRoutes);
+
 
 // app.get("/me", supabaseAuth, async (req: AuthedRequest, res) => {
 //   const user = req.user; 

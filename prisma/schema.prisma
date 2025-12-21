@@ -67,6 +67,8 @@ model Profile {
   posts         Post[]
   postReactions PostReaction[]
 
+  product Product[]
+
   interests ProfileInterest[]
 
   settings ProfileSettings?
@@ -214,7 +216,7 @@ model Comment {
   parentCommentId String? @db.Uuid
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   post   Post    @relation(fields: [postId], references: [id])
   author Profile @relation(fields: [profileId], references: [id])
@@ -311,9 +313,6 @@ model Notification {
   message     Message?         @relation(fields: [messageId], references: [id])
   post        Post?            @relation(fields: [postId], references: [id])
   recipient   Profile          @relation("NotificationsRecipient", fields: [recipientId], references: [id])
-
-  // @@unique([recipientId, actorId, type, postId])
-
 }
 
 model Interest {
@@ -342,6 +341,67 @@ model MessageRead {
 
   @@id([messageId, userId])
   @@index([userId])
+}
+
+model Product {
+  id         String         @id @default(uuid()) @db.Uuid
+  sellerId   String         @db.Uuid
+  visibility PostVisibility @default(PUBLIC)
+
+  title    String
+  price    Int
+  currency String @default("GBP")
+
+  description String
+
+  category   String
+  condition  ProductCondition @default(USED_GOOD)
+  negotiable Boolean          @default(true)
+
+  availability Available
+
+  status      ListingStatus @default(DRAFT)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  deletedAt   DateTime?
+
+  // location
+  country      String? @default("")
+  city         String? @default("")
+  district     String? @default("")
+  locationText String? // “Ikeja, Lagos”
+  lat          Float?
+  lng          Float?
+
+  viewCount Int @default(0)
+  saveCount Int @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  seller Profile        @relation(fields: [sellerId], references: [id])
+  media  ProductMedia[]
+
+  @@index([sellerId, createdAt])
+  @@index([status, createdAt])
+  @@index([city, status])
+}
+
+model ProductMedia {
+  id         String   @id @default(uuid()) @db.Uuid
+  productId  String   @db.Uuid
+  url        String
+  mimeType   String
+  width      Int?
+  height     Int?
+  sizeBytes  Int
+  orderIndex Int      @default(0)
+  isCover    Boolean  @default(false)
+  createdAt  DateTime @default(now()) @db.Timestamptz
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, orderIndex])
 }
 
 enum MediaType {
@@ -402,4 +462,26 @@ enum NotificationType {
   MESSAGE
   LINEAGE_INVITE
   LINEAGE_ACCEPT
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  SOLD
+  DELETED
+}
+
+enum ProductCondition {
+  NEW
+  USED_LIKE_NEW
+  USED_GOOD
+  USED_FAIR
+}
+
+enum Available {
+  IMMEDIATLY
+  IN_A_WEEK
+  IN_A_MONTH
+  OTHER
 }

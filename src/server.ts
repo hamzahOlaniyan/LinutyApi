@@ -14,6 +14,9 @@ import uploadRoutes from "./modules/upload/upload.routes";
 import mediaRoutes from "./modules/media/media.routes";
 import searchRoutes from "./modules/search/search.route";
 import productRoutes from "./modules/Product/product.route";
+import friendsRoutes from "./modules/friends/friends.route";
+
+
 
 import { supabaseAuth, AuthedRequest } from "./modules/auth/auth.middleware";
 import { prisma } from "./config/prisma";
@@ -34,7 +37,7 @@ app.use("/feed", feedRoutes);
 app.use("/profile", profileRoutes);
 app.use("/post", postRoutes);
 app.use("/product", productRoutes);
-
+app.use("/friends", friendsRoutes);
 app.use("/", commentRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/conversations", chatRoutes);

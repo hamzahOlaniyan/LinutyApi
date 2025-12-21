@@ -45,8 +45,13 @@ model Profile {
   conversationsOwned  Conversation[]            @relation("ConversationsCreatedBy")
   conversationMembers ConversationParticipant[]
 
-  followsAsFollowee Follow[] @relation("FollowsFollowee")
-  followsAsFollower Follow[] @relation("FollowsFollower")
+  // Friend requests
+  sentFriendRequests     FriendRequest[] @relation("FriendRequestsSent")
+  receivedFriendRequests FriendRequest[] @relation("FriendRequestsReceived")
+
+  // Friendships (two sides)
+  friendshipsA Friendship[] @relation("FriendshipA")
+  friendshipsB Friendship[] @relation("FriendshipB")
 
   kinshipsA Kinship[] @relation("ProfileAKinships")
   kinshipsB Kinship[] @relation("ProfileBKinships")
@@ -137,17 +142,30 @@ model Kinship {
   @@unique([profileIdA, profileIdB, relationAtoB])
 }
 
-model Follow {
-  id         String   @id @default(uuid()) @db.Uuid
-  followerId String   @db.Uuid
-  followeeId String   @db.Uuid
-  createdAt  DateTime @default(now()) @db.Timestamptz(6)
-  followee   Profile  @relation("FollowsFollowee", fields: [followeeId], references: [id])
-  follower   Profile  @relation("FollowsFollower", fields: [followerId], references: [id])
+model FriendRequest {
+  id          String              @id @default(uuid()) @db.Uuid
+  requesterId String              @db.Uuid
+  addresseeId String              @db.Uuid
+  status      FriendRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now()) @db.Timestamptz(6)
+  respondedAt DateTime?           @db.Timestamptz(6)
 
-  @@unique([followerId, followeeId])
-  @@index([followeeId])
-  @@index([followerId])
+  requester Profile @relation("FriendRequestsSent", fields: [requesterId], references: [id])
+  addressee Profile @relation("FriendRequestsReceived", fields: [addresseeId], references: [id])
+
+  @@unique([requesterId, addresseeId])
+}
+
+model Friendship {
+  id        String   @id @default(uuid()) @db.Uuid
+  userAId   String   @db.Uuid
+  userBId   String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  userA Profile @relation("FriendshipA", fields: [userAId], references: [id])
+  userB Profile @relation("FriendshipB", fields: [userBId], references: [id])
+
+  @@unique([userAId, userBId])
 }
 
 model Block {
@@ -484,4 +502,11 @@ enum Available {
   IN_A_WEEK
   IN_A_MONTH
   OTHER
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
 }

@@ -2,22 +2,114 @@ import { Request, Response } from "express";
 import { prisma } from "../../config/prisma";
 import { AuthedRequest } from "../auth/auth.middleware";
 
+async function getCurrentProfile(req: AuthedRequest) {
+  const userId = req.user?.id as string | undefined;
+  if (!userId) return null;
 
+  return prisma.profile.findUnique({
+    where: { userId }
+  });
+}
 
 export class ProfileController{
 
   static async getProfiles(req: AuthedRequest, res: Response) {
     try {
+    const me = await getCurrentProfile(req);
+    if (!me) return res.status(401).json({ message: "Unauthenticated" });
 
-      const profile = await prisma.profile.findMany({
-        where:{}
-      });
+    const q = String(req.query.query ?? "").trim();
+    const limit = Math.min(Number(req.query.limit ?? 20), 50);
 
-      return res.json(profile);
-    } catch (error) {
-      console.error("getMyProfile error:", error);
-      return res.status(500).json({ message: "Internal server error" });
+    const profiles = await prisma.profile.findMany({
+      where: {
+        id: { not: me.id },
+        ...(q
+          ? {
+              OR: [
+                { username: { contains: q, mode: "insensitive" } },
+                { firstName: { contains: q, mode: "insensitive" } },
+                { lastName: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        avatarUrl: true,
+      },
+      take: limit,
+      orderBy: { createdAt: "desc" },
+    });
+
+    const ids = profiles.map((p) => p.id);
+
+    // 1) friendships between me and these ids
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        OR: [
+          { userAId: me.id, userBId: { in: ids } },
+          { userBId: me.id, userAId: { in: ids } },
+        ],
+      },
+      select: { userAId: true, userBId: true },
+    });
+
+    const friendSet = new Set(
+      friendships.map((f) => (f.userAId === me.id ? f.userBId : f.userAId))
+    );
+
+    // 2) pending requests (both directions)
+    const pending = await prisma.friendRequest.findMany({
+      where: {
+        status: "PENDING",
+        OR: [
+          { requesterId: me.id, addresseeId: { in: ids } }, // outgoing
+          { addresseeId: me.id, requesterId: { in: ids } }, // incoming
+        ],
+      },
+      select: { id: true, requesterId: true, addresseeId: true },
+    });
+
+    const outgoingMap = new Map<string, string>(); // profileId -> requestId
+    const incomingMap = new Map<string, string>(); // profileId -> requestId
+
+    for (const r of pending) {
+      if (r.requesterId === me.id) outgoingMap.set(r.addresseeId, r.id);
+      else incomingMap.set(r.requesterId, r.id);
     }
+
+    const items = profiles.map((p) => {
+      if (friendSet.has(p.id)) {
+        return { ...p, friendStatus: "FRIENDS" as const };
+      }
+      const incomingId = incomingMap.get(p.id);
+      if (incomingId) {
+        return {
+          ...p,
+          friendStatus: "PENDING_INCOMING" as const,
+          requestId: incomingId,
+        };
+      }
+      const outgoingId = outgoingMap.get(p.id);
+      if (outgoingId) {
+        return {
+          ...p,
+          friendStatus: "PENDING_OUTGOING" as const,
+          requestId: outgoingId,
+        };
+      }
+      return { ...p, friendStatus: "NONE" as const };
+    });
+
+    return res.status(200).json({ items });
+  } catch (error) {
+    console.log("exploreProfiles ❌", error);
+    return res.status(500).json({ message: "Server error" });
+  }
   }
 
     // GET /profile/me

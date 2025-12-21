@@ -1,8 +1,6 @@
 import { Router } from "express";
 import{ProfileController} from "./profile.controller";
 import { supabaseAuth, optionalSupabaseAuth } from "../auth/auth.middleware";
-import { FollowController } from "../follow/follow.controller";
-
 
 const router = Router();
 
@@ -20,15 +18,5 @@ router.get("/username/check", ProfileController.checkUsernameAvailability);
 router.get("/search", optionalSupabaseAuth, ProfileController.searchProfiles);
 router.get("/:username", optionalSupabaseAuth, ProfileController.getProfileByUsername);
 
-// follow / unfollow
-router.post("/:username/follow", supabaseAuth, FollowController.followProfile);
-router.delete("/:username/follow", supabaseAuth, FollowController.unfollowProfile);
-
-// followers / following lists
-router.get("/:username/followers", optionalSupabaseAuth, FollowController.getFollowers);
-router.get("/:username/following", optionalSupabaseAuth, FollowController.getFollowing);
-
-// relationship edge (used for UI)
-router.get("/:username/edge", optionalSupabaseAuth, FollowController.getProfileEdge);
 
 export default router;

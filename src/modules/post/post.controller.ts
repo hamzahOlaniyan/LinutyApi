@@ -286,7 +286,6 @@ export class PostController {
       return res.status(500).json({ message: "Internal server error" });
     }
   }
-
   static async getMyPostReaction(req: AuthedRequest, res: Response) {
     try {
       const me = await getCurrentProfile(req);
@@ -313,7 +312,6 @@ export class PostController {
       return res.status(500).json({ message: "Internal server error" });
     }
   }
-
   /**
    * DELETE /posts/:postId
    * only author can delete
@@ -352,68 +350,65 @@ export class PostController {
    * PATCH /posts/:postId
    * update content / visibility / locationText
    */
-  static async updatePost(req: AuthedRequest, res: Response) {
-      try {
-        const me = await getCurrentProfile(req);
-        if (!me) {
-          return res.status(401).json({ message: "Unauthenticated" });
-        }
+  // static async updatePost(req: AuthedRequest, res: Response) {
+  //     try {
+  //       const me = await getCurrentProfile(req);
+  //       if (!me) {
+  //         return res.status(401).json({ message: "Unauthenticated" });
+  //       }
 
-        const { postId } = req.params;
-        const { content } = req.body;
+  //       const { postId } = req.params;
+  //       const { content } = req.body;
 
-        const post = await prisma.post.findUnique({
-          where: { id: postId },
-          select: { id: true, profileId: true }
-        });
+  //       const post = await prisma.post.findUnique({
+  //         where: { id: postId },
+  //         select: { id: true, profileId: true }
+  //       });
 
-        if (!post) {
-          return res.status(404).json({ message: "Post not found" });
-        }
+  //       if (!post) {
+  //         return res.status(404).json({ message: "Post not found" });
+  //       }
 
-        if (post.profileId !== me.id) {
-          return res.status(403).json({ message: "Not allowed to edit this post" });
-        }
+  //       if (post.profileId !== me.id) {
+  //         return res.status(403).json({ message: "Not allowed to edit this post" });
+  //       }
 
-        const updated = await prisma.post.update({
-          where: { id: postId },
-          data: {
-            content
-          }
-        });
+  //       const updated = await prisma.post.update({
+  //         where: { id: postId },
+  //         data: {
+  //           content
+  //         }
+  //       });
 
-        return res.json(updated);
-      } catch (error) {
-        console.error("updatePost error:", error);
-        return res.status(500).json({ message: "Internal server error" });
-      }
-  }
-
+  //       return res.json(updated);
+  //     } catch (error) {
+  //       console.error("updatePost error:", error);
+  //       return res.status(500).json({ message: "Internal server error" });
+  //     }
+  // }
   static async updatePostContent(req: AuthedRequest, res: Response) {
-  try {
-    const me = await getCurrentProfile(req);
-    if (!me) return res.status(401).json({ message: "Unauthenticated" });
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
 
-    const { postId } = req.params;
-    const { content } = req.body as { content?: string };
+      const { postId } = req.params;
+      const { content } = req.body as { content?: string };
 
-    const post = await prisma.post.findUnique({ where: { id: postId } });
-    if (!post) return res.status(404).json({ message: "Post not found" });
-    if (post.profileId !== me.id) return res.status(403).json({ message: "Forbidden" });
+      const post = await prisma.post.findUnique({ where: { id: postId } });
+      if (!post) return res.status(404).json({ message: "Post not found" });
+      if (post.profileId !== me.id) return res.status(403).json({ message: "Forbidden" });
 
-    const updated = await prisma.post.update({
-      where: { id: postId },
-      data: { content: content?.trim() || null }
-    });
+      const updated = await prisma.post.update({
+        where: { id: postId },
+        data: { content: content?.trim() || null }
+      });
 
-    return res.status(200).json(updated);
-  } catch (error) {
-    console.log("failed to update post ❌", error);
-    return res.status(500).json({ message: "Server error" });
+      return res.status(200).json(updated);
+    } catch (error) {
+      console.log("failed to update post ❌", error);
+      return res.status(500).json({ message: "Server error" });
+    }
   }
-}
-
-
  static async addPostMedia(req: AuthedRequest, res: Response) {
   try {
     const me = await getCurrentProfile(req);
@@ -461,9 +456,8 @@ export class PostController {
     console.log("failed to add post media ❌", error);
     return res.status(500).json({ message: "Server error" });
   }
-}
-
-static async getMediaByPostId(req: AuthedRequest, res: Response) {
+  }
+  static async getMediaByPostId(req: AuthedRequest, res: Response) {
   try {
     const me = await getCurrentProfile(req);
     if (!me) return res.status(401).json({ message: "Unauthenticated" });
@@ -483,35 +477,30 @@ static async getMediaByPostId(req: AuthedRequest, res: Response) {
     console.log("failed to delete media ❌", error);
     return res.status(500).json({ message: "Server error" });
   }
-}
-
-static async deleteMedia(req: AuthedRequest, res: Response) {
-  try {
-    const me = await getCurrentProfile(req);
-    if (!me) return res.status(401).json({ message: "Unauthenticated" });
-
-    const { mediaId } = req.params; // ✅ correct param name
-    if (!mediaId) return res.status(400).json({ message: "mediaId is required" });
-
-    const media = await prisma.mediaFile.findUnique({ where: { id: mediaId } });
-    if (!media) return res.status(404).json({ message: "Media not found" });
-
-    const post = await prisma.post.findUnique({ where: { id: media.postId } });
-    if (!post || post.profileId !== me.id) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-
-    await prisma.mediaFile.delete({ where: { id: mediaId } });
-    return res.status(204).send();
-  } catch (error) {
-    console.log("failed to delete media ❌", error);
-    return res.status(500).json({ message: "Server error" });
   }
-}
+  static async deleteMedia(req: AuthedRequest, res: Response) {
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
 
+      const { mediaId } = req.params; // ✅ correct param name
+      if (!mediaId) return res.status(400).json({ message: "mediaId is required" });
 
+      const media = await prisma.mediaFile.findUnique({ where: { id: mediaId } });
+      if (!media) return res.status(404).json({ message: "Media not found" });
 
+      const post = await prisma.post.findUnique({ where: { id: media.postId } });
+      if (!post || post.profileId !== me.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
 
+      await prisma.mediaFile.delete({ where: { id: mediaId } });
+      return res.status(204).send();
+    } catch (error) {
+      console.log("failed to delete media ❌", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
 
   // static async updatePostContent(req: AuthedRequest, res: Response) {
   // try {

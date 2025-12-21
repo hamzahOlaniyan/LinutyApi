@@ -144,43 +144,13 @@ export class ProductController{
 
     static async  listMarketplace(req: AuthedRequest, res: Response) {
     try {
-        // const limit = Math.min(Number(req.query.limit) || 20, 50);
-        // const cursor = req.query.cursor as string | undefined;
-
-        // const city = (req.query.city as string | undefined) ?? undefined;
-        // const q = (req.query.q as string | undefined)?.trim();
-
-        const products = await prisma.product.findMany(
-            {
-        // take: limit + 1,
-        // ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        // where: {
-        //     deletedAt: null,
-        //     status: "ACTIVE",
-        //     ...(city ? { city } : {}),
-        //     ...(q
-        //     ? {
-        //         OR: [
-        //             { title: { contains: q, mode: "insensitive" } },
-        //             { description: { contains: q, mode: "insensitive" } }
-        //         ]
-        //         }
-        //     : {})
-        // },
-        // orderBy: { createdAt: "desc" },
+        const products = await prisma.product.findMany({
         include: {
             media: { orderBy: { orderIndex: "asc" }, take: 1 }, // cover only for feed
             seller: { select: { id: true, username: true, firstName: true, lastName: true, avatarUrl: true } }
         }
         }
     );
-
-        // let nextCursor: string | null = null;
-        // if (products.length > limit) {
-        // const last = products.pop();
-        // nextCursor = last?.id ?? null;
-        // }
-
         return res.json({ data: products });
     } catch (err) {
         console.error("listMarketplace error:", err);
@@ -188,60 +158,198 @@ export class ProductController{
     }
     }
 
-static async deleteProduct(req: AuthedRequest, res: Response) {
-    try {
-      const me = await getCurrentProfile(req);
-      if (!me) {
-        return res.status(401).json({ message: "Unauthenticated" });
+  static async deleteProduct(req: AuthedRequest, res: Response) {
+      try {
+        const me = await getCurrentProfile(req);
+        if (!me) {
+          return res.status(401).json({ message: "Unauthenticated" });
+        }
+
+        const { productId } = req.params;
+
+        const product = await prisma.product.findUnique({
+          where: { id: productId },
+          select: { id: true, sellerId: true }
+        });
+
+        if (!product) {
+          return res.status(404).json({ message: "product not found" });
+        }
+
+        if (product.sellerId !== me.id) {
+          return res.status(403).json({ message: "Not allowed to delete this post" });
+        }
+
+        await prisma.product.delete({ where: { id: productId } });
+
+        return res.status(200).json({ message: "Post deleted " });
+      } catch (error) {
+        console.error("deletePost error:", error);
+        return res.status(500).json({ message: "Internal server error" });
       }
-
-      const { productId } = req.params;
-
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-        select: { id: true, sellerId: true }
-      });
-
-      if (!product) {
-        return res.status(404).json({ message: "product not found" });
-      }
-
-      if (product.sellerId !== me.id) {
-        return res.status(403).json({ message: "Not allowed to delete this post" });
-      }
-
-      await prisma.product.delete({ where: { id: productId } });
-
-      return res.status(200).json({ message: "Post deleted " });
-    } catch (error) {
-      console.error("deletePost error:", error);
-      return res.status(500).json({ message: "Internal server error" });
     }
-  }
 
-  static async deleteProductMedia(req: AuthedRequest, res: Response) {
+    static async deleteProductMedia(req: AuthedRequest, res: Response) {
+      try {
+        const me = await getCurrentProfile(req);
+        if (!me) return res.status(401).json({ message: "Unauthenticated" });
+    
+        const { mediaId } = req.params; // ✅ correct param name
+        if (!mediaId) return res.status(400).json({ message: "mediaId is required" });
+    
+        const media = await prisma.productMedia.findUnique({ where: { id: mediaId } });
+        if (!media) return res.status(404).json({ message: "Media not found" });
+    
+        const product = await prisma.product.findUnique({ where: { id: media.productId} });
+        if (!product || product.sellerId !== me.id) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+    
+        await prisma.productMedia.delete({ where: { id: mediaId } });
+        return res.status(204).send();
+      } catch (error) {
+        console.log("failed to delete media ❌", error);
+        return res.status(500).json({ message: "Server error" });
+      }
+    }
+
+    static async updateProductContent(req: AuthedRequest, res: Response) {
+        try {
+          const me = await getCurrentProfile(req);
+          if (!me) return res.status(401).json({ message: "Unauthenticated" });
+    
+          const { productId } = req.params;
+          const body = req.body as CreateProductInput;
+    
+          const product = await prisma.product.findUnique({ where: { id: productId } });
+          if (!product) return res.status(404).json({ message: "product not found" });
+          if (product.sellerId !== me.id) return res.status(403).json({ message: "Forbidden" });
+    
+          const updated = await prisma.product.update({
+            where: { id: productId },
+             data: {
+                sellerId: me.id,
+                title: body.title.trim(),
+                description: body.description?.trim() as string,
+                price: body.price,
+                currency: body.currency ?? "NGN",
+                condition: body.condition ?? "USED_GOOD",
+                category: body.category ?? "OTHER",
+                availability: body.availability ?? "IMMEDIATLY",
+                negotiable: body.negotiable ?? true,
+                status: body.status ?? "DRAFT",
+                locationText: body.locationText,
+                city: body.city,
+                district: body.district,
+                country: body.country,
+                lat: body.lat,
+                lng: body.lng,
+                publishedAt: body.status === "ACTIVE" ? new Date() : null,
+        }
+          });
+    
+          return res.status(200).json(updated);
+        } catch (error) {
+          console.log("failed to update post ❌", error);
+          return res.status(500).json({ message: "Server error" });
+        }
+    }
+
+  static async addProductMedia(req: AuthedRequest, res: Response) {
     try {
       const me = await getCurrentProfile(req);
       if (!me) return res.status(401).json({ message: "Unauthenticated" });
-  
-      const { mediaId } = req.params; // ✅ correct param name
-      if (!mediaId) return res.status(400).json({ message: "mediaId is required" });
-  
-      const media = await prisma.productMedia.findUnique({ where: { id: mediaId } });
-      if (!media) return res.status(404).json({ message: "Media not found" });
-  
-      const product = await prisma.product.findUnique({ where: { id: media.id } });
-      if (!product || product.sellerId !== me.id) {
-        return res.status(403).json({ message: "Forbidden" });
+
+      const { productId } = req.params;
+
+      const { images } = req.body as {
+        images?: Array<{
+          url: string;
+          mimeType?: string;
+          sizeBytes?: number;
+          width?: number | null;
+          height?: number | null;
+        }>;
+      };
+
+      if (!images?.length) {
+        return res.status(400).json({ message: "No images provided" });
       }
-  
-      await prisma.mediaFile.delete({ where: { id: mediaId } });
-      return res.status(204).send();
+
+      // optional: verify post exists (and belongs to user)
+      const product = await prisma.product.findUnique({ where: { id: productId } });
+      if (!product) return res.status(404).json({ message: "product not found" });
+      if (product.sellerId !== me.id) return res.status(403).json({ message: "Forbidden" });
+
+      const created = await prisma.$transaction(
+        images.map((img) =>
+          prisma.productMedia.create({
+            data: {
+              productId,
+              // type: "IMAGE",
+              url: img.url,
+              mimeType: img.mimeType ?? "image/jpeg",
+              sizeBytes: img.sizeBytes ?? 0,
+              width: img.width ?? null,
+              height: img.height ?? null
+            }
+          })
+        )
+      );
+
+      return res.status(201).json(created);
+    } catch (error) {
+      console.log("failed to add post media ❌", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+    }
+    static async getProductMediaById(req: AuthedRequest, res: Response) {
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+      const { productId } = req.params;
+
+      const product = await prisma.product.findUnique({ where: { id: productId } });
+      if (!product) return res.status(404).json({ message: "product not found" });
+      if (product.sellerId !== me.id) return res.status(403).json({ message: "Forbidden" });
+
+
+      const media = await prisma.productMedia.findMany({ where: { productId }, });
+      if (!media) return res.status(404).json({ message: "Media not found" });
+
+      return res.status(200).json(media);
     } catch (error) {
       console.log("failed to delete media ❌", error);
       return res.status(500).json({ message: "Server error" });
     }
-  }
+    }
+    // static async deleteMedia(req: AuthedRequest, res: Response) {
+    //   try {
+    //     const me = await getCurrentProfile(req);
+    //     if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+    //     const { mediaId } = req.params; // ✅ correct param name
+    //     if (!mediaId) return res.status(400).json({ message: "mediaId is required" });
+
+    //     const media = await prisma.productMedia
+    //     .findUnique({ where: { id: mediaId } });
+    //     if (!media) return res.status(404).json({ message: "Media not found" });
+
+    //     const product = await prisma.product.findUnique({ where: { id: media.productId } });
+    //     if (!product || product.sellerId !== me.id) {
+    //       return res.status(403).json({ message: "Forbidden" });
+    //     }
+
+    //     await prisma.productMedia.delete({ where: { id: mediaId } });
+    //     return res.status(204).send();
+    //   } catch (error) {
+    //     console.log("failed to delete media ❌", error);
+    //     return res.status(500).json({ message: "Server error" });
+    //   }
+    // }
+
+
 
 
 

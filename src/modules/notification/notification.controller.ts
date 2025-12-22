@@ -30,7 +30,7 @@ export async function getMyNotifications(req: AuthedRequest, res: Response) {
         : {}),
       orderBy: { createdAt: "desc" },
       include: {
-        actor: {
+        sender: {
           select: {
             id: true,
             username: true,

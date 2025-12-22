@@ -1,9 +1,9 @@
-import { Router } from "express";
-import { getPeopleYouMayKnow } from "./discovery.controller";
-import { supabaseAuth } from "../auth/auth.middleware";
+// import { Router } from "express";
+// import { getPeopleYouMayKnow } from "./discovery.controller";
+// import { supabaseAuth } from "../auth/auth.middleware";
 
-const router = Router();
+// const router = Router();
 
-router.get("/people-you-may-know", supabaseAuth, getPeopleYouMayKnow);
+// router.get("/people-you-may-know", supabaseAuth, getPeopleYouMayKnow);
 
-export default router;
+// export default router;

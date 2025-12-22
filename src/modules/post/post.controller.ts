@@ -210,7 +210,7 @@ export class PostController {
           await prisma.notification.deleteMany({
             where: {
               recipientId: post.profileId,
-              actorId: me.id,
+              senderId: me.id,
               type: "LIKE",
               postId
             }
@@ -239,7 +239,7 @@ export class PostController {
             await tx.notification.deleteMany({
               where: {
                 recipientId: post.profileId,
-                actorId: me.id,
+                senderId: me.id,
                 type: "LIKE",
                 postId
               }
@@ -264,7 +264,7 @@ export class PostController {
         const existingNotif = await prisma.notification.findFirst({
           where: {
             recipientId: post.profileId,
-            actorId: me.id,
+            senderId: me.id,
             type: "LIKE",
             postId
           },

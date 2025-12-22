@@ -7,78 +7,59 @@ datasource db {
 }
 
 model Profile {
-  id        String @id @default(uuid()) @db.Uuid
-  userId    String @unique @db.Uuid
-  firstName String @default("")
-  lastName  String @default("")
-  username  String @unique
+  id                      String                    @id @default(uuid()) @db.Uuid
+  userId                  String                    @unique @db.Uuid
+  firstName               String                    @default("")
+  lastName                String                    @default("")
+  username                String                    @unique
+  gender                  String?
+  dateOfBirth             DateTime?
+  email                   String                    @unique
+  country                 String?                   @default("")
+  city                    String?                   @default("")
+  district                String?                   @default("")
+  location                String                    @default("")
+  bio                     String                    @default("Connecting with amazing people and building great things together.")
+  countryCode             String?
+  avatarUrl               String?
+  coverUrl                String?
+  lineageMainSurname      String?
+  lineageRootVillage      String?
+  isVerified              Boolean                   @default(false)
+  createdAt               DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                  @updatedAt @db.Timestamptz(6)
+  ethnicity               String?
+  occupation              String?
+  isProfileComplete       Boolean                   @default(false)
+  blocksAsBlocked         Block[]                   @relation("BlocksBlocked")
+  blocksAsBlocker         Block[]                   @relation("BlocksBlocker")
+  comments                Comment[]
+  commentReactions        CommentReaction[]
+  conversationsOwned      Conversation[]            @relation("ConversationsCreatedBy")
+  conversationMembers     ConversationParticipant[]
+  kinshipsA               Kinship[]                 @relation("ProfileAKinships")
+  kinshipsB               Kinship[]                 @relation("ProfileBKinships")
+  lineagesCreated         Lineage[]                 @relation("LineagesCreatedBy")
+  lineageMembershipsAdded LineageMembership[]       @relation("LineageMembershipsAddedBy")
+  lineageMemberships      LineageMembership[]
+  messages                Message[]
+  messageReads            MessageRead[]
+  mutesAsMuted            Mute[]                    @relation("MutesMuted")
+  mutesAsMuter            Mute[]                    @relation("MutesMuter")
+  notificationsAsActor    Notification[]            @relation("NotificationsActor")
+  notifications           Notification[]            @relation("NotificationsRecipient")
+  posts                   Post[]
+  postReactions           PostReaction[]
+  product                 Product[]
+  interests               ProfileInterest[]
+  settings                ProfileSettings?
 
-  gender      String?
-  dateOfBirth DateTime?
-
-  occupation String?
-  email      String  @unique
-  country    String? @default("")
-
-  city        String? @default("")
-  district    String? @default("")
-  location    String  @default("")
-  countryCode String?
-
-  bio       String  @default("Connecting with amazing people and building great things together.")
-  avatarUrl String?
-  coverUrl  String?
-
-  ethnicity          String?
-  lineageMainSurname String?
-  lineageRootVillage String?
-  isVerified         Boolean  @default(false)
-  createdAt          DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
-
-  blocksAsBlocked Block[] @relation("BlocksBlocked")
-  blocksAsBlocker Block[] @relation("BlocksBlocker")
-
-  comments         Comment[]
-  commentReactions CommentReaction[]
-
-  conversationsOwned  Conversation[]            @relation("ConversationsCreatedBy")
-  conversationMembers ConversationParticipant[]
-
-  // Friend requests
   sentFriendRequests     FriendRequest[] @relation("FriendRequestsSent")
   receivedFriendRequests FriendRequest[] @relation("FriendRequestsReceived")
 
   // Friendships (two sides)
   friendshipsA Friendship[] @relation("FriendshipA")
   friendshipsB Friendship[] @relation("FriendshipB")
-
-  kinshipsA Kinship[] @relation("ProfileAKinships")
-  kinshipsB Kinship[] @relation("ProfileBKinships")
-
-  lineagesCreated         Lineage[]           @relation("LineagesCreatedBy")
-  lineageMembershipsAdded LineageMembership[] @relation("LineageMembershipsAddedBy")
-  lineageMemberships      LineageMembership[]
-
-  messages     Message[]
-  messageReads MessageRead[]
-
-  mutesAsMuted Mute[] @relation("MutesMuted")
-  mutesAsMuter Mute[] @relation("MutesMuter")
-
-  notificationsAsActor Notification[] @relation("NotificationsActor")
-  notifications        Notification[] @relation("NotificationsRecipient")
-
-  posts         Post[]
-  postReactions PostReaction[]
-
-  product Product[]
-
-  interests ProfileInterest[]
-
-  settings ProfileSettings?
-
-  isProfileComplete Boolean @default(false)
 
   @@map("profile")
 }
@@ -94,6 +75,40 @@ model ProfileSettings {
   updatedAt             DateTime @updatedAt @db.Timestamptz(6)
   profile               Profile  @relation(fields: [profileId], references: [id])
 }
+
+model FriendRequest {
+  id          String              @id @default(uuid()) @db.Uuid
+  requesterId String              @db.Uuid
+  addresseeId String              @db.Uuid
+  status      FriendRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now()) @db.Timestamptz(6)
+  respondedAt DateTime?           @db.Timestamptz(6)
+
+  notifications Notification[]
+
+  requester Profile @relation("FriendRequestsSent", fields: [requesterId], references: [id])
+  addressee Profile @relation("FriendRequestsReceived", fields: [addresseeId], references: [id])
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@index([requesterId, status])
+}
+
+model Friendship {
+  id        String   @id @default(uuid()) @db.Uuid
+  userAId   String   @db.Uuid
+  userBId   String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  userA Profile @relation("FriendshipA", fields: [userAId], references: [id])
+  userB Profile @relation("FriendshipB", fields: [userBId], references: [id])
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+
 
 model Lineage {
   id             String              @id @default(uuid()) @db.Uuid
@@ -140,32 +155,6 @@ model Kinship {
   profileB     Profile     @relation("ProfileBKinships", fields: [profileIdB], references: [id])
 
   @@unique([profileIdA, profileIdB, relationAtoB])
-}
-
-model FriendRequest {
-  id          String              @id @default(uuid()) @db.Uuid
-  requesterId String              @db.Uuid
-  addresseeId String              @db.Uuid
-  status      FriendRequestStatus @default(PENDING)
-  createdAt   DateTime            @default(now()) @db.Timestamptz(6)
-  respondedAt DateTime?           @db.Timestamptz(6)
-
-  requester Profile @relation("FriendRequestsSent", fields: [requesterId], references: [id])
-  addressee Profile @relation("FriendRequestsReceived", fields: [addresseeId], references: [id])
-
-  @@unique([requesterId, addresseeId])
-}
-
-model Friendship {
-  id        String   @id @default(uuid()) @db.Uuid
-  userAId   String   @db.Uuid
-  userBId   String   @db.Uuid
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-
-  userA Profile @relation("FriendshipA", fields: [userAId], references: [id])
-  userB Profile @relation("FriendshipB", fields: [userBId], references: [id])
-
-  @@unique([userAId, userBId])
 }
 
 model Block {
@@ -227,25 +216,20 @@ model MediaFile {
 }
 
 model Comment {
-  id              String  @id @default(uuid()) @db.Uuid
-  postId          String  @db.Uuid
-  profileId       String  @db.Uuid
+  id              String            @id @default(uuid()) @db.Uuid
+  postId          String            @db.Uuid
+  profileId       String            @db.Uuid
+  parentCommentId String?           @db.Uuid
   content         String
-  parentCommentId String? @db.Uuid
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt
-
-  post   Post    @relation(fields: [postId], references: [id])
-  author Profile @relation(fields: [profileId], references: [id])
-
-  parentComment Comment?  @relation("CommentToReplies", fields: [parentCommentId], references: [id])
-  replies       Comment[] @relation("CommentToReplies")
-
-  likeCount Int @default(0)
-
-  reactions     CommentReaction[]
-  notifications Notification[]
+  likeCount       Int               @default(0)
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime          @default(now()) @updatedAt
+  parentComment   Comment?          @relation("CommentToReplies", fields: [parentCommentId], references: [id])
+  replies         Comment[]         @relation("CommentToReplies")
+  post            Post              @relation(fields: [postId], references: [id])
+  author          Profile           @relation(fields: [profileId], references: [id])
+  reactions       CommentReaction[]
+  notifications   Notification[]
 
   @@index([postId, parentCommentId, createdAt])
   @@index([parentCommentId, createdAt])
@@ -317,17 +301,19 @@ model Message {
 model Notification {
   id          String           @id @default(uuid()) @db.Uuid
   recipientId String           @db.Uuid
-  actorId     String?          @db.Uuid
+  senderId    String?          @db.Uuid
   type        NotificationType
   postId      String?          @db.Uuid
   commentId   String?          @db.Uuid
+  requestId   String?          @db.Uuid
   lineageId   String?          @db.Uuid
   messageId   String?          @db.Uuid
   isRead      Boolean          @default(false)
   createdAt   DateTime         @default(now()) @db.Timestamptz(6)
-  actor       Profile?         @relation("NotificationsActor", fields: [actorId], references: [id])
+  sender      Profile?         @relation("NotificationsActor", fields: [senderId], references: [id])
   comment     Comment?         @relation(fields: [commentId], references: [id])
   lineage     Lineage?         @relation(fields: [lineageId], references: [id])
+  request     FriendRequest?   @relation(fields: [requestId], references: [id])
   message     Message?         @relation(fields: [messageId], references: [id])
   post        Post?            @relation(fields: [postId], references: [id])
   recipient   Profile          @relation("NotificationsRecipient", fields: [recipientId], references: [id])
@@ -362,43 +348,33 @@ model MessageRead {
 }
 
 model Product {
-  id         String         @id @default(uuid()) @db.Uuid
-  sellerId   String         @db.Uuid
-  visibility PostVisibility @default(PUBLIC)
-
-  title    String
-  price    Int
-  currency String @default("GBP")
-
-  description String
-
-  category   String
-  condition  ProductCondition @default(USED_GOOD)
-  negotiable Boolean          @default(true)
-
+  id           String           @id @default(uuid()) @db.Uuid
+  sellerId     String           @db.Uuid
+  visibility   PostVisibility   @default(PUBLIC)
+  title        String
+  price        Int
+  currency     String           @default("GBP")
+  description  String
+  category     String
+  condition    ProductCondition @default(USED_GOOD)
+  negotiable   Boolean          @default(true)
   availability Available
-
-  status      ListingStatus @default(DRAFT)
-  publishedAt DateTime?
-  expiresAt   DateTime?
-  deletedAt   DateTime?
-
-  // location
-  country      String? @default("")
-  city         String? @default("")
-  district     String? @default("")
-  locationText String? // “Ikeja, Lagos”
+  status       ListingStatus    @default(DRAFT)
+  publishedAt  DateTime?
+  expiresAt    DateTime?
+  deletedAt    DateTime?
+  country      String?          @default("")
+  city         String?          @default("")
+  district     String?          @default("")
+  locationText String?
   lat          Float?
   lng          Float?
-
-  viewCount Int @default(0)
-  saveCount Int @default(0)
-
-  createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime @updatedAt @db.Timestamptz
-
-  seller Profile        @relation(fields: [sellerId], references: [id])
-  media  ProductMedia[]
+  viewCount    Int              @default(0)
+  saveCount    Int              @default(0)
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  seller       Profile          @relation(fields: [sellerId], references: [id])
+  media        ProductMedia[]
 
   @@index([sellerId, createdAt])
   @@index([status, createdAt])
@@ -415,9 +391,8 @@ model ProductMedia {
   sizeBytes  Int
   orderIndex Int      @default(0)
   isCover    Boolean  @default(false)
-  createdAt  DateTime @default(now()) @db.Timestamptz
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, orderIndex])
 }
@@ -473,7 +448,7 @@ enum ReactionType {
 }
 
 enum NotificationType {
-  FOLLOW
+  FRIEND_REQUEST
   LIKE
   COMMENT
   MENTION

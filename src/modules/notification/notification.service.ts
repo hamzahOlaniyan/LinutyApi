@@ -3,9 +3,10 @@ import { prisma } from "../../config/prisma";
 
 type CreateNotificationInput = {
   recipientId: string;        // Profile.id
-  actorId?: string | null;    // Profile.id
+  senderId?: string | null; 
   type: NotificationType;
   postId?: string | null;
+  requestId?:string  |null
   commentId?: string | null;
   lineageId?: string | null;
   messageId?: string | null;
@@ -15,23 +16,25 @@ export class NotificationService {
   static async create(input: CreateNotificationInput) {
     const {
       recipientId,
-      actorId = null,
+      senderId = null,
       type,
       postId = null,
+      requestId=null,
       commentId = null,
       lineageId = null,
       messageId = null,
     } = input;
 
     // avoid self-notifications
-    if (actorId && actorId === recipientId) return null;
+    if (senderId && senderId === recipientId) return null;
 
     return prisma.notification.create({
       data: {
         recipientId,
-        actorId,
+        senderId,
         type,
         postId,
+        requestId,
         commentId,
         lineageId,
         messageId,
@@ -39,20 +42,21 @@ export class NotificationService {
     });
   }
 
-  // convenience methods
 
-  static async follow(recipientId: string, actorId: string) {
+  static async friendRequest(recipientId: string, senderId: string, requestId: string){
     return this.create({
       recipientId,
-      actorId,
-      type: NotificationType.FOLLOW
-    });
+      senderId,
+      requestId,
+      type: NotificationType.FRIEND_REQUEST
+    })
+
   }
 
-  static async likePost(recipientId: string, actorId: string, postId: string) {
+  static async likePost(recipientId: string, senderId: string, postId: string) {
     return this.create({
       recipientId,
-      actorId,
+      senderId,
       postId,
       type: NotificationType.LIKE
     });
@@ -60,13 +64,13 @@ export class NotificationService {
 
   static async likeComment(
   recipientId: string,
-  actorId: string,
+  senderId: string,
   postId: string,
   commentId: string
 ) {
   return this.create({
     recipientId,
-    actorId,
+    senderId,
     postId,
     commentId,
     type: NotificationType.LIKE
@@ -76,13 +80,13 @@ export class NotificationService {
 
   static async comment(
     recipientId: string,
-    actorId: string,
+    senderId: string,
     postId: string,
     commentId: string
   ) {
     return this.create({
       recipientId,
-      actorId,
+      senderId,
       postId,
       commentId,
       type: NotificationType.COMMENT
@@ -91,30 +95,30 @@ export class NotificationService {
 
   static async message(
     recipientId: string,
-    actorId: string,
+    senderId: string,
     messageId: string
   ) {
     return this.create({
       recipientId,
-      actorId,
+      senderId,
       messageId,
       type: NotificationType.MESSAGE
     });
   }
 
-  static async lineageInvite(recipientId: string, actorId: string, lineageId: string) {
+  static async lineageInvite(recipientId: string, senderId: string, lineageId: string) {
     return this.create({
       recipientId,
-      actorId,
+      senderId,
       lineageId,
       type: NotificationType.LINEAGE_INVITE
     });
   }
 
-  static async lineageAccept(recipientId: string, actorId: string, lineageId: string) {
+  static async lineageAccept(recipientId: string, senderId: string, lineageId: string) {
     return this.create({
       recipientId,
-      actorId,
+      senderId,
       lineageId,
       type: NotificationType.LINEAGE_ACCEPT
     });

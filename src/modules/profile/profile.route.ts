@@ -1,6 +1,6 @@
 import { Router } from "express";
-import{ProfileController} from "./profile.controller";
 import { supabaseAuth, optionalSupabaseAuth } from "../auth/auth.middleware";
+import { ProfileController } from "./profile.controller";
 
 const router = Router();
 

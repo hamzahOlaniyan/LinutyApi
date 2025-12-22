@@ -332,7 +332,7 @@ export async function reactToComment(req: AuthedRequest, res: Response) {
           await tx.notification.create({
             data: {
               recipientId: comment.profileId,
-              actorId: me.id,
+              senderId: me.id,
               type: "LIKE",
               postId: comment.postId,
               commentId
@@ -360,7 +360,7 @@ export async function reactToComment(req: AuthedRequest, res: Response) {
           await tx.notification.deleteMany({
             where: {
               recipientId: comment.profileId,
-              actorId: me.id,
+              senderId: me.id,
               type: "LIKE",
               commentId
             }
@@ -382,7 +382,7 @@ export async function reactToComment(req: AuthedRequest, res: Response) {
       const notif = await prisma.notification.findFirst({
         where: {
           recipientId: comment.profileId,
-          actorId: me.id,
+          senderId: me.id,
           type: "LIKE",
           commentId
         },

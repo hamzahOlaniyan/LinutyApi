@@ -40,6 +40,7 @@ export class ProfileController{
         lastName: true,
         username: true,
         avatarUrl: true,
+        
       },
       take: limit,
       orderBy: { createdAt: "desc" },

@@ -214,9 +214,6 @@ export class AuthController {
     }
   }
 
-
-
-
   static async setSession(req: AuthedRequest, res: Response) {
     try {
       const { data, error } = await supabaseAdmin.auth.setSession({access_token:'', refresh_token:""} );
@@ -228,35 +225,51 @@ export class AuthController {
     }
   }
 
-  static async getSession(req: AuthedRequest, res: Response) {
+  static async validateSession(req: AuthedRequest, res: Response) {
   try {
-    // 1. Get token from header
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
-      return res.status(200).json({ session: null });
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.slice("Bearer ".length);
 
-    // 2. Use Supabase auth to decode + verify token
     const { data, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !data?.user) {
-      return res.status(200).json({ session: null });
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // 3. Return session-like object
-    return res.status(200).json({
-      user: data.user,
-      accessToken: token,      // same token client sent
-      refreshToken: null       // (optional) remove if not used
-    });
+    return res.status(200).json({ user: data.user });
   } catch (err) {
-    console.log("SESSION ERROR:", err);
-    return res.status(200).json({ session: null });
+    console.log("ME ERROR:", err);
+    return res.status(401).json({ message: "Unauthorized" });
   }
 }
+
+
+
+static async  requireAuth(req: any, res: Response, next: NextFunction) {
+  const header = req.headers.authorization;
+
+  if (!header?.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const token = header.slice(7);
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+
+  if (error || !data?.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  req.user = data.user; // attach
+  next();
+}
+
+
+
 
   static async getUser(req: AuthedRequest, res: Response) {
     try {
@@ -268,7 +281,6 @@ export class AuthController {
       return res.status(500).json({ message: "Something went wrong getting user" });
     }
   }
-
 
   static async getUserIdentities(req:AuthedRequest,res:Response){
     try {

@@ -466,7 +466,7 @@ export class PostController {
 
     const post = await prisma.post.findUnique({ where: { id: postId } });
     if (!post) return res.status(404).json({ message: "Post not found" });
-    if (post.profileId !== me.id) return res.status(403).json({ message: "Forbidden" });
+    // if (post.profileId !== me.id) return res.status(403).json({ message: "Forbidden" });
 
 
     const media = await prisma.mediaFile.findMany({ where: { postId }, });

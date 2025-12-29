@@ -8,6 +8,7 @@ router.post("/", supabaseAuth, PostController.createPost);
 router.post("/:postId/reactions", supabaseAuth, PostController.reactToPost);
 router.post("/:postId/media", PostController.addPostMedia);
 
+
 router.get("/:postId", optionalSupabaseAuth, PostController.getPostById);
 router.get("/:postId/media",supabaseAuth, PostController.getMediaByPostId);
 router.get("/:postId/reactions/me", supabaseAuth, PostController.getMyPostReaction);

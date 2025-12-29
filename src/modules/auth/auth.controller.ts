@@ -295,29 +295,27 @@ static async  requireAuth(req: any, res: Response, next: NextFunction) {
   }
 
   static async checkEmailAvailability (req:AuthedRequest,res:Response) {
-  try {
-    const { email } = (req.body || {}) as { email?: string };
+    try {
+      const { email } = (req.body || {}) as { email?: string };
 
-    if (!email) {
-      res.status(400).json({ message: "Email is required" });
-      return;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const existingProfile = await prisma.profile.findUnique({
+        where: { email }
+      });
+
+      if (existingProfile) {
+        return res.status(409).json({ message: "Email is already in use! try another" });
+      }
+
+      res.status(200).json({ message: "Email is available" });
+    } catch (error) {
+      console.error("checkEmailAvailability error:", error);
+      res.status(500).json({ message: "Something went wrong" });
     }
-
-    const existingProfile = await prisma.profile.findUnique({
-      where: { email }
-    });
-
-    if (existingProfile) {
-      res.status(409).json({ message: "Email is already in use!" });
-      return;
-    }
-
-    res.status(200).json({ message: "Email is available" });
-  } catch (error) {
-    console.error("checkEmailAvailability error:", error);
-    res.status(500).json({ message: "Something went wrong" });
-  }
-};
+  };
 
   static async checkUsernameAvailability(req:AuthedRequest,res:Response){
    try {

@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../../config/prisma";
 import { AuthedRequest } from "../auth/auth.middleware";
+import { Profile } from "@prisma/client";
+import { includes } from "zod";
 
 async function getCurrentProfile(req: AuthedRequest) {
   const userId = req.user?.id as string | undefined;
@@ -9,6 +11,20 @@ async function getCurrentProfile(req: AuthedRequest) {
   return prisma.profile.findUnique({
     where: { userId }
   });
+}
+
+type completeRegistrationInput={
+      location?: string;
+      dateOfBirth?: string;     
+      clan_tree?: string[];     
+      gender?: string | null;
+      ethnicity?: string | null;
+      fullName?: string | null;
+      avatarUrl?: string | null;
+      profession?: string | null;
+      interest?: string[];     
+      appInterests?: string[];
+      isProfileComplete?:boolean
 }
 
 export class ProfileController{
@@ -45,6 +61,7 @@ export class ProfileController{
       take: limit,
       orderBy: { createdAt: "desc" },
     });
+
 
     const ids = profiles.map((p) => p.id);
 
@@ -113,6 +130,112 @@ export class ProfileController{
   }
   }
 
+  
+  static async getProfileById(req: AuthedRequest, res: Response) {
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+      const { profileId } = req.params;
+
+      const profile = await prisma.profile.findUnique({
+        where: { id: profileId },
+        // include whatever you need
+        // include: { settings: true, ... }
+      });
+
+      if (!profile) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+
+      const friendsCount = await prisma.friendship.count({
+        where: {
+          OR: [{ userAId: profile.id }, { userBId: profile.id }],
+        },
+      });
+
+
+      // If user is viewing their own profile
+      if (profile.id === me.id) {
+        return res.status(200).json({
+          ...profile,
+          friendStatus: "SELF" as const,
+        });
+      }
+
+      // 1) Are we already friends?
+      const friendship = await prisma.friendship.findFirst({
+        where: {
+          OR: [
+            { userAId: me.id, userBId: profile.id },
+            { userBId: me.id, userAId: profile.id },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (friendship) {
+        return res.status(200).json({
+          ...profile,
+          friendStatus: "FRIENDS" as const,
+        });
+      }
+
+      // 2) Is there a pending friend request either way?
+      const pending = await prisma.friendRequest.findFirst({
+        where: {
+          status: "PENDING",
+          OR: [
+            { requesterId: me.id, addresseeId: profile.id }, // outgoing
+            { addresseeId: me.id, requesterId: profile.id }, // incoming
+          ],
+        },
+        select: { id: true, requesterId: true, addresseeId: true },
+      });
+
+      if (pending) {
+        const isOutgoing = pending.requesterId === me.id;
+
+        return res.status(200).json({
+          ...profile,
+          friendStatus: isOutgoing
+            ? ("PENDING_OUTGOING" as const)
+            : ("PENDING_INCOMING" as const),
+          requestId: pending.id,
+        });
+      }
+
+      // 3) Nothing between you two
+      return res.status(200).json({
+        ...profile,
+        friendsCount,
+        friendStatus: "NONE" as const,
+      });
+    } catch (error) {
+      console.error("getProfileById error:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+static async getProfileByEmail(req: AuthedRequest, res: Response) {
+    try {
+      const { email } = req.params;
+
+      const profile = await prisma.profile.findUnique({
+        where: { email: email },
+      });
+
+      if (!profile) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+
+      return res.status(200).json(profile);
+    } catch (error) {
+      console.error("getProfileById error:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
     // GET /profile/me
   static async getMyProfile(req: AuthedRequest, res: Response) {
     try {
@@ -143,64 +266,118 @@ export class ProfileController{
   }
 
   // PATCH /profiles/me
-  static async updateMyProfile(req: AuthedRequest, res: Response) {
-    try {
-      const userId = req.user.id;
+  // static async updateMyProfile(req: AuthedRequest, res: Response) {
+  //   try {
+  //     const userId = req.user.id;
 
-      const {
-        firstName,
-        lastName,
-        username,
-        bio,
-        country,
-        city,
-        district,
-        location,
-        gender,
-        dateOfBirth,
-        lineageMainSurname,
-        lineageRootVillage
-      } = req.body;
+  //     const {
+  //       firstName,
+  //       lastName,
+  //       username,
+  //       bio,
+  //       country,
+  //       city,
+  //       district,
+  //       location,
+  //       gender,
+  //       dateOfBirth,
+  //       lineageMainSurname,
+  //       lineageRootVillage
+  //     } = req.body;
 
-      // Only check username if it was provided
-      if (username) {
-        const existing = await prisma.profile.findFirst({
-          where: {
-            username,
-            userId: { not: userId }
-          },
-          select: { id: true }
-        });
+  //     // Only check username if it was provided
+  //     if (username) {
+  //       const existing = await prisma.profile.findFirst({
+  //         where: {
+  //           username,
+  //           userId: { not: userId }
+  //         },
+  //         select: { id: true }
+  //       });
 
-        if (existing) {
-          return res.status(409).json({ message: "Username already taken" });
-        }
-      }
+  //       if (existing) {
+  //         return res.status(409).json({ message: "Username already taken" });
+  //       }
+  //     }
 
-      const updated = await prisma.profile.update({
-        where: { userId },
-        data: {
-          firstName,
-          lastName,
-          username,
-          bio,
-          country,
-          city,
-          district,
-          location,
-          gender,
-          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-          lineageMainSurname,
-          lineageRootVillage
-        }
-      });
+  //     const updated = await prisma.profile.update({
+  //       where: { userId },
+  //       data: {
+  //         firstName,
+  //         lastName,
+  //         username,
+  //         bio,
+  //         country,
+  //         city,
+  //         district,
+  //         location,
+  //         gender,
+  //         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+  //         lineageMainSurname,
+  //         lineageRootVillage
+  //       }
+  //     });
 
-      return res.json(updated);
-    } catch (error) {
-      console.error("updateMyProfile error:", error);
-      return res.status(500).json({ message: "Internal server error" });
-    }
-  }
+  //     return res.json(updated);
+  //   } catch (error) {
+  //     console.error("updateMyProfile error:", error);
+  //     return res.status(500).json({ message: "Internal server error" });
+  //   }
+  // }
+//   static async updateMyProfile(req: AuthedRequest, res: Response) {
+//   try {
+//     const userId = req.user.id;
+
+//     const allowedKeys = [
+//       "firstName",
+//       "lastName",
+//       "username",
+//       "bio",
+//       "country",
+//       "city",
+//       "district",
+//       "location",
+//       "gender",
+//       "dateOfBirth",
+//       "lineageMainSurname",
+//       "lineageRootVillage",
+//     ] as const;
+
+//     type AllowedKey = (typeof allowedKeys)[number];
+
+//     const body = Object.fromEntries(
+//       Object.entries(req.body).filter(([key, value]) => {
+//         // allow only whitelisted keys + ignore undefined
+//         return (allowedKeys as readonly string[]).includes(key) && value !== undefined;
+//       })
+//     ) as Partial<Record<AllowedKey, any>>;
+
+//     // normalize date
+//     if (content.dateOfBirth) {
+//       content.dateOfBirth = new Date(content.dateOfBirth);
+//     }
+
+//     // username check only if username sent
+//     if (content.username) {
+//       const existing = await prisma.profile.findFirst({
+//         where: { username: content.username, userId: { not: userId } },
+//         select: { id: true },
+//       });
+//       if (existing) return res.status(409).json({ message: "Username already taken" });
+//     }
+
+//     const updated = await prisma.profile.update({
+//       where: { userId },
+//       data: content,
+//     });
+
+//     return res.json(updated);
+//   } catch (error) {
+//     console.error("updateMyProfile error:", error);
+//     return res.status(500).json({ message: "Internal server error" });
+//   }
+// }
+
 
   // PATCH /profiles/me/avatar
   static async updateMyAvatar(req: AuthedRequest, res: Response) {
@@ -248,79 +425,187 @@ export class ProfileController{
 
   // PATCH /profiles/me/interests
   // body: { interests: string[] }
-  static async updateMyInterests(req: AuthedRequest, res: Response) {
-    try {
-      const userId = req.user.id;
-      const { interests } = req.body as { interests: string[] };
+  // static async updateMyInterests(req: AuthedRequest, res: Response) {
+  //   try {
+  //     const userId = req.user.id;
+  //     const { interests } = req.body as { interests: string[] };
 
-      if (!Array.isArray(interests)) {
-        return res
-          .status(400)
-          .json({ message: "interests must be an array of strings" });
-      }
+  //     if (!Array.isArray(interests)) {
+  //       return res
+  //         .status(400)
+  //         .json({ message: "interests must be an array of strings" });
+  //     }
 
-      const profile = await prisma.profile.findUnique({ where: { userId } });
-      if (!profile) {
-        return res.status(404).json({ message: "Profile not found" });
-      }
+  //     const profile = await prisma.profile.findUnique({ where: { userId } });
+  //     if (!profile) {
+  //       return res.status(404).json({ message: "Profile not found" });
+  //     }
 
-      const uniqueNames = [...new Set(interests.map(i => i.trim()).filter(Boolean))];
+  //     const uniqueNames = [...new Set(interests.map(i => i.trim()).filter(Boolean))];
 
-      // Upsert Interest records
-      const interestRecords = await Promise.all(
-        uniqueNames.map(name =>
-          prisma.interest.upsert({
-            where: { name },
-            update: {},
-            create: { name }
-          })
-        )
-      );
+  //     // Upsert Interest records
+  //     const interestRecords = await Promise.all(
+  //       uniqueNames.map(name =>
+  //         prisma.interest.upsert({
+  //           where: { name },
+  //           update: {},
+  //           create: { name }
+  //         })
+  //       )
+  //     );
 
-      const interestIds = interestRecords.map(i => i.id);
+  //     const interestIds = interestRecords.map(i => i.id);
 
-      // Remove old links not in new set
-      await prisma.profileInterest.deleteMany({
-        where: {
-          userId: profile.id,
-          interestId: { notIn: interestIds }
-        }
+  //     // Remove old links not in new set
+  //     await prisma.profileInterest.deleteMany({
+  //       where: {
+  //         userId: profile.id,
+  //         interestId: { notIn: interestIds }
+  //       }
+  //     });
+
+  //     // Add missing links
+  //     await Promise.all(
+  //       interestIds.map(interestId =>
+  //         prisma.profileInterest.upsert({
+  //           where: {
+  //             userId_interestId: {
+  //               userId: profile.id,
+  //               interestId
+  //             }
+  //           },
+  //           update: {},
+  //           create: {
+  //             userId: profile.id,
+  //             interestId
+  //           }
+  //         })
+  //       )
+  //     );
+
+  //     const updatedProfile = await prisma.profile.findUnique({
+  //       where: { id: profile.id },
+  //       include: {
+  //         interests: {
+  //           include: { interest: true }
+  //         }
+  //       }
+  //     });
+
+  //     return res.json(updatedProfile);
+  //   } catch (error) {
+  //     console.error("updateMyInterests error:", error);
+  //     return res.status(500).json({ message: "Internal server error" });
+  //   }
+  // }
+  static async completeRegistration(req: AuthedRequest, res: Response) {
+  try {
+    const authUserId = req.user.id;
+    const body = req.body as completeRegistrationInput;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // ✅ find profile by userId (auth user id)
+      const me = await tx.profile.findUnique({ where: { userId: authUserId } });
+      if (!me) return null;
+
+      const profile = await tx.profile.update({
+        where: { userId: authUserId },
+         data: {
+          location: body.location,
+          dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+          gender: body.gender,
+          fullName:body.fullName,
+          ethnicity: body.ethnicity,
+          avatarUrl: body.avatarUrl,
+          profession: body.profession,
+          isProfileComplete: true,
+         },
       });
 
-      // Add missing links
-      await Promise.all(
-        interestIds.map(interestId =>
-          prisma.profileInterest.upsert({
-            where: {
-              userId_interestId: {
-                userId: profile.id,
-                interestId
-              }
-            },
-            update: {},
-            create: {
-              userId: profile.id,
-              interestId
-            }
-          })
-        )
-      );
+      // ---------- CLAN TREE ----------
+      if (Array.isArray(body.clan_tree)) {
+        await tx.profileClan.deleteMany({ where: { profileId: profile.id } });
 
-      const updatedProfile = await prisma.profile.findUnique({
+        const names = body.clan_tree.map((n) => String(n).trim()).filter(Boolean);
+
+        for (let i = 0; i < names.length; i++) {
+          const clan = await tx.clan.upsert({
+            where: { name: names[i] },
+            create: { name: names[i] },
+            update: {},
+          });
+
+          await tx.profileClan.create({
+            data: { profileId: profile.id, clanId: clan.id, order: i },
+          });
+        }
+      }
+
+      // ---------- INTERESTS ----------
+      if (Array.isArray(body.interest)) {
+        await tx.profileInterest.deleteMany({ where: { userId: profile.id } });
+
+        const names = [...new Set(body.interest.map((n) => String(n).trim()).filter(Boolean))];
+
+        for (const name of names) {
+          const interest = await tx.interest.upsert({
+            where: { name },
+            create: { name },
+            update: {},
+          });
+
+          await tx.profileInterest.create({
+            data: { userId: profile.id, interestId: interest.id },
+          });
+        }
+      }
+
+      // ---------- APP INTERESTS ----------
+      if (Array.isArray(body.appInterests)) {
+        await tx.profileAppInterests.deleteMany({ where: { userId: profile.id } });
+
+        const names = [...new Set(body.appInterests.map((n) => String(n).trim()).filter(Boolean))];
+
+        const rows = await Promise.all(
+          names.map(async (name) =>
+            tx.appInterest.upsert({
+              where: { name },
+              create: { name },
+              update: {},
+              select: { id: true },
+            })
+          )
+        );
+
+      await tx.profileAppInterests.createMany({
+        data: rows.map((r) => ({
+          userId: profile.id,
+          interestId: r.id,
+        })),
+        skipDuplicates: true,
+      });
+      }
+
+      return tx.profile.findUnique({
         where: { id: profile.id },
         include: {
-          interests: {
-            include: { interest: true }
-          }
-        }
+          clanTree: { orderBy: { order: "asc" }, include: { clan: true } },
+          interests: { include: { interest: true } },
+          appInterests: { include: { interest: true } },
+        },
       });
+    },{timeout: 20000});
 
-      return res.json(updatedProfile);
-    } catch (error) {
-      console.error("updateMyInterests error:", error);
-      return res.status(500).json({ message: "Internal server error" });
-    }
+    if (!result) return res.status(404).json({ message: "Profile not found" });
+
+    return res.status(200).json(result);
+  } catch (error: any) {
+    console.error("completeRegistration error:", error);
+    return res.status(500).json({ message: error?.message ?? "Internal server error" });
   }
+}
+
+
 
   // GET /profiles/username/check?username=...
   static async checkUsernameAvailability(req: Request, res: Response) {
@@ -424,43 +709,43 @@ export class ProfileController{
     }
   }
 
-  static async  completeMyProfile(req: AuthedRequest, res: Response) {
-  try {
-    const user = req.user;
-    if (!user) return res.status(401).json({ message: "Unauthenticated" });
+//   static async  completeMyProfile(req: AuthedRequest, res: Response) {
+//   try {
+//     const user = req.user;
+//     if (!user) return res.status(401).json({ message: "Unauthenticated" });
 
-    const {
-      firstName,
-      lastName,
-      gender,
-      dateOfBirth,
-      country,
-      city,
-      district,
-      location,
-      bio
-    } = req.body;
+//     const {
+//       firstName,
+//       lastName,
+//       gender,
+//       dateOfBirth,
+//       country,
+//       city,
+//       district,
+//       location,
+//       bio
+//     } = req.body;
 
-    const profile = await prisma.profile.update({
-      where: { userId: user.id },
-      data: {
-        firstName,
-        lastName,
-        gender,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        country,
-        city,
-        district,
-        location,
-        bio,
-        isProfileComplete: true
-      }
-    });
+//     const profile = await prisma.profile.update({
+//       where: { userId: user.id },
+//       data: {
+//         firstName,
+//         lastName,
+//         gender,
+//         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+//         country,
+//         city,
+//         district,
+//         location,
+//         bio,
+//         isProfileComplete: true
+//       }
+//     });
 
-    return res.json({ profile });
-  } catch (err) {
-    console.error("completeMyProfile error:", err);
-    return res.status(500).json({ message: "Something went wrong" });
-  }
-}
+//     return res.json({ profile });
+//   } catch (err) {
+//     console.error("completeMyProfile error:", err);
+//     return res.status(500).json({ message: "Something went wrong" });
+//   }
+// }
 }

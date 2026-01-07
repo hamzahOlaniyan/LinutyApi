@@ -10,6 +10,9 @@ router.get("/me", supabaseAuth, ProfileController.getMyProfile);
 router.get("/:profileId", supabaseAuth, ProfileController.getProfileById);
 router.get("/:email", supabaseAuth, ProfileController.getProfileByEmail);
 
+router.get("/post/:profileId", supabaseAuth, ProfileController.getPostsByProfileId);
+
+
 
 // router.patch("/me", supabaseAuth, ProfileController.updateMyProfile);
 router.patch("/me/avatar", supabaseAuth, ProfileController.updateMyAvatar);

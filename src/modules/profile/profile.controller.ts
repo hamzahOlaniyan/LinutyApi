@@ -265,6 +265,38 @@ static async getProfileByEmail(req: AuthedRequest, res: Response) {
     }
   }
 
+  static async getPostsByProfileId(req: Request, res: Response) {
+      try {
+        const { profileId } = req.params;
+  
+        const post = await prisma.post.findMany({
+          where: { profileId },
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                isVerified: true
+              }
+            },
+            mediaFiles: true,
+          }
+        });
+  
+        if (!post) {
+          return res.status(404).json([]);
+        }
+  
+        return res.status(200).json(post);
+      } catch (error) {
+        console.error("getPostById error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    }
+
   // PATCH /profiles/me
   // static async updateMyProfile(req: AuthedRequest, res: Response) {
   //   try {

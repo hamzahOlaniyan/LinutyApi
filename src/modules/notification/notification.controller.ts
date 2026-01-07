@@ -20,18 +20,18 @@ export const NotificationController = {
         return res.status(404).json({ message: "Profile not found" });
       }
 
-      const limit = Math.min(Number(req.query.limit) || 20, 50);
-      const cursor = req.query.cursor as string | undefined;
+      // const limit = Math.min(Number(req.query.limit) || 20, 50);
+      // const cursor = req.query.cursor as string | undefined;
 
       const notifications = await prisma.notification.findMany({
         where: { recipientId: profile.id },
-        take: limit + 1,
-        ...(cursor
-          ? {
-              cursor: { id: cursor },
-              skip: 1
-            }
-          : {}),
+        // take: limit + 1,
+        // ...(cursor
+        //   ? {
+        //       cursor: { id: cursor },
+        //       skip: 1
+        //     }
+        //   : {}),
         orderBy: { createdAt: "desc" },
         include: {
           sender: {
@@ -61,24 +61,24 @@ export const NotificationController = {
               content: true
             }
           },
-          lineage: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
+          // lineage: {
+          //   select: {
+          //     id: true,
+          //     name: true
+          //   }
+          // }
         }
       });
 
-      let nextCursor: string | null = null;
-      if (notifications.length > limit) {
-        const last = notifications.pop();
-        nextCursor = last?.id ?? null;
-      }
+      // let nextCursor: string | null = null;
+      // if (notifications.length > limit) {
+      //   const last = notifications.pop();
+      //   nextCursor = last?.id ?? null;
+      // }
 
       return res.json({
         data: notifications,
-        nextCursor
+        // nextCursor
       });
     } catch (error) {
       console.error("getMyNotifications error:", error);
@@ -99,7 +99,7 @@ export const NotificationController = {
       if (!profile) return res.status(404).json({ message: "Profile not found" });
 
        const count = await prisma.notification.count({where:{
-        recipientId: userId, isRead: false
+        recipientId: profile.id, isRead: false
        }})
 
        return res.json(count)

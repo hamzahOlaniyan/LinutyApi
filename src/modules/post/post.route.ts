@@ -10,8 +10,11 @@ router.post("/:postId/media", PostController.addPostMedia);
 
 
 router.get("/:postId", optionalSupabaseAuth, PostController.getPostById);
+router.get("/:postId/creatorId", supabaseAuth, PostController.getPostCreatorId);
 router.get("/:postId/media",supabaseAuth, PostController.getMediaByPostId);
 router.get("/:postId/reactions/me", supabaseAuth, PostController.getMyPostReaction);
+
+
 
 router.patch("/:postId", supabaseAuth, PostController.updatePostContent);
 

@@ -35,26 +35,24 @@ export async function createComment(req: AuthedRequest, res: Response) {
       return res.status(400).json({ message: "Content is required" });
     }
 
-          if (parentCommentId) {
-            const parent = await prisma.comment.findUnique({
-              where: { id: parentCommentId },
-              select: { id: true, postId: true, parentCommentId: true }
-            });
+    if (parentCommentId) {
+      const parent = await prisma.comment.findUnique({
+        where: { id: parentCommentId },
+        select: { id: true, postId: true, parentCommentId: true }
+      });
 
-            // ✅ parent must exist and belong to this post
-            if (!parent || parent.postId !== postId) {
-              return res.status(400).json({ message: "Invalid parentId" });
-            }
-
-            // ✅ one-level replies only
-            if (parent.parentCommentId) {
-              return res
-                .status(400)
-                .json({ message: "Only one level of replies allowed" });
-            }
+      // ✅ parent must exist and belong to this post
+      if (!parent || parent.postId !== postId) {
+        return res.status(400).json({ message: "Invalid parentId" });
       }
 
-
+      // ✅ one-level replies only
+      if (parent.parentCommentId) {
+        return res
+          .status(400)
+          .json({ message: "Only one level of replies allowed" });
+      }
+    }
 
     const post = await prisma.post.findUnique({
       where: { id: postId }
@@ -63,8 +61,6 @@ export async function createComment(req: AuthedRequest, res: Response) {
     if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
-
-    
 
     const comment = await prisma.$transaction(async (tx) => {
       const created = await tx.comment.create({
@@ -99,7 +95,6 @@ export async function createComment(req: AuthedRequest, res: Response) {
       return created;
     });
 
-    // notify post author (don’t notify self)
     if (post.profileId !== me.id) {
       await NotificationService.comment(post.profileId, me.id, postId, comment.id);
     }
@@ -122,13 +117,13 @@ export async function getPostComments(req: Request, res: Response) {
 
     const comments = await prisma.comment.findMany({
       where: { postId },
-      take: limit + 1,
-      ...(cursor
-        ? {
-            cursor: { id: cursor },
-            skip: 1
-          }
-        : {}),
+      // take: limit + 1,
+      // ...(cursor
+      //   ? {
+      //       cursor: { id: cursor },
+      //       skip: 1
+      //     }
+      //   : {}),
       orderBy: { createdAt: "asc" },
       include: {
         author: {
@@ -140,10 +135,10 @@ export async function getPostComments(req: Request, res: Response) {
             avatarUrl: true
           }
         },
-        replies: {
-          take: 3, // preview
-          orderBy: { createdAt: "asc" }
-        }
+        // replies: {
+        //   take: 3, // preview
+        //   orderBy: { createdAt: "asc" }
+        // }
       }
     });
 

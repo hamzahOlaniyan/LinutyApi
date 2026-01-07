@@ -167,6 +167,29 @@ export class PostController {
       return res.status(500).json({ message: "Internal server error" });
     }
   }
+
+  static async getPostCreatorId(req: Request, res: Response) {
+
+     const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
+      
+    try {
+      const { postId } = req.params;
+
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+        select: {profileId:true}
+      });
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      return res.status(200).json(post);
+    } catch (error) {
+      console.error("getPostById error:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  }
   static async reactToPost(req: AuthedRequest, res: Response) {
     try {
       const me = await getCurrentProfile(req);

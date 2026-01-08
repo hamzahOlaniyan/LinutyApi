@@ -171,4 +171,70 @@ export class FriendsController{
     }
   }
 
+  static async getFriendsCount(req: AuthedRequest, res: Response){
+    
+    const {profileId} = req.params
+
+    if (!profileId) return res.status(400).json({ message: "profileId is required" });
+
+    const count = await prisma.friendship.count({
+      where: {
+        OR: [{ userAId: profileId }, { userBId: profileId }],
+      },
+    });
+
+
+    return res.json({count})
+  
+  }
+
+  static async getFriends(req: AuthedRequest, res: Response) {
+  try {
+    const { profileId } = req.params;
+
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        OR: [{ userAId: profileId }, { userBId: profileId }],
+      },
+      include: {
+        userA: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+        userB: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            isVerified: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Map each friendship to "the other person"
+    const friends = friendships.map((f) =>
+      f.userAId === profileId ? f.userB : f.userA
+    );
+
+    // const unique = new Map<string, any>();
+    // for (const p of friends) unique.set(p.id, p);
+    // return res.json({ friends: [...unique.values()], count: unique.size });
+    return res.json({ friends, count: friends.length });
+  } catch (error) {
+    console.error("getFriends error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+
 }

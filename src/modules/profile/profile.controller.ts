@@ -638,7 +638,6 @@ static async getProfileByEmail(req: AuthedRequest, res: Response) {
 }
 
 
-
   // GET /profiles/username/check?username=...
   static async checkUsernameAvailability(req: Request, res: Response) {
     try {

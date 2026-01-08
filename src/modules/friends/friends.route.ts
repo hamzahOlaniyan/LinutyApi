@@ -9,8 +9,14 @@ router.post('/requests/:requestId/accept', FriendsController.acceptFriendRequest
 router.post('/requests/:requestId/decline', FriendsController.declineFriendRequest)
 
 
+
+
 router.delete('/requests/:profileId', FriendsController.cancelFriendRequest)
 router.delete('/:profileId', FriendsController.unfriend)
+
+router.get('/:profileId/count', FriendsController.getFriendsCount)
+router.get('/:profileId', FriendsController.getFriends)
+
 
 
 

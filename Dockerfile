@@ -5,8 +5,10 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
+
+
 RUN npm install
-RUN npm install --save-dev @types/pg
+# RUN npm install --save-dev @types/pg
 
 # Copy prisma first (with .env placeholder)
 COPY prisma ./prisma

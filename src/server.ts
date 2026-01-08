@@ -41,6 +41,8 @@ app.use("/notifications", notificationRoutes);
 app.use("/conversations", chatRoutes);
 app.use("/lineages", lineageRoutes);
 app.use("/kinships", kinshipRoutes);
+app.use("/media", mediaRoutes);
+
 // app.use("/discovery", discoveryRoutes);
 app.use("/search", searchRoutes);
 app.use("/internal/media", mediaRoutes);

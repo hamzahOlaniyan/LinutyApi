@@ -53,5 +53,23 @@ export class MediaFileController  {
     }
   }
 
+  static async getMediaByProfileId(req: Request, res: Response) {
+  try {
+    const { profileId } = req.params;
+
+    const media = await prisma.mediaFile.findMany({
+      where: {
+        post: { profileId },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.json( media );
+  } catch (error) {
+    console.error("getMediaByProfileId error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 }
 

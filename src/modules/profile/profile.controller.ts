@@ -530,112 +530,112 @@ static async getProfileByEmail(req: AuthedRequest, res: Response) {
   //     return res.status(500).json({ message: "Internal server error" });
   //   }
   // }
-  static async completeRegistration(req: AuthedRequest, res: Response) {
-  try {
-    const authUserId = req.user.id;
-    const body = req.body as completeRegistrationInput;
+//   static async completeRegistration(req: AuthedRequest, res: Response) {
+//   try {
+//     const authUserId = req.user.id;
+//     const body = req.body as completeRegistrationInput;
 
-    const result = await prisma.$transaction(async (tx) => {
-      // ✅ find profile by userId (auth user id)
-      const me = await tx.profile.findUnique({ where: { userId: authUserId } });
-      if (!me) return null;
+//     const result = await prisma.$transaction(async (tx) => {
+//       // ✅ find profile by userId (auth user id)
+//       const me = await tx.profile.findUnique({ where: { userId: authUserId } });
+//       if (!me) return null;
 
-      const profile = await tx.profile.update({
-        where: { userId: authUserId },
-         data: {
-          location: body.location,
-          dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
-          gender: body.gender,
-          fullName:body.fullName,
-          ethnicity: body.ethnicity,
-          avatarUrl: body.avatarUrl,
-          profession: body.profession,
-          isProfileComplete: true,
-         },
-      });
+//       const profile = await tx.profile.update({
+//         where: { userId: authUserId },
+//          data: {
+//           location: body.location,
+//           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+//           gender: body.gender,
+//           fullName:body.fullName,
+//           ethnicity: body.ethnicity,
+//           avatarUrl: body.avatarUrl,
+//           profession: body.profession,
+//           isProfileComplete: true,
+//          },
+//       });
 
-      // ---------- CLAN TREE ----------
-      if (Array.isArray(body.clan_tree)) {
-        await tx.profileClan.deleteMany({ where: { profileId: profile.id } });
+//       // ---------- CLAN TREE ----------
+//       if (Array.isArray(body.clan_tree)) {
+//         await tx.profileClan.deleteMany({ where: { profileId: profile.id } });
 
-        const names = body.clan_tree.map((n) => String(n).trim()).filter(Boolean);
+//         const names = body.clan_tree.map((n) => String(n).trim()).filter(Boolean);
 
-        for (let i = 0; i < names.length; i++) {
-          const clan = await tx.clan.upsert({
-            where: { name: names[i] },
-            create: { name: names[i] },
-            update: {},
-          });
+//         for (let i = 0; i < names.length; i++) {
+//           const clan = await tx.clan.upsert({
+//             where: { name: names[i] },
+//             create: { name: names[i] },
+//             update: {},
+//           });
 
-          await tx.profileClan.create({
-            data: { profileId: profile.id, clanId: clan.id, order: i },
-          });
-        }
-      }
+//           await tx.profileClan.create({
+//             data: { profileId: profile.id, clanId: clan.id, order: i },
+//           });
+//         }
+//       }
 
-      // ---------- INTERESTS ----------
-      if (Array.isArray(body.interest)) {
-        await tx.profileInterest.deleteMany({ where: { userId: profile.id } });
+//       // ---------- INTERESTS ----------
+//       if (Array.isArray(body.interest)) {
+//         await tx.profileInterest.deleteMany({ where: { userId: profile.id } });
 
-        const names = [...new Set(body.interest.map((n) => String(n).trim()).filter(Boolean))];
+//         const names = [...new Set(body.interest.map((n) => String(n).trim()).filter(Boolean))];
 
-        for (const name of names) {
-          const interest = await tx.interest.upsert({
-            where: { name },
-            create: { name },
-            update: {},
-          });
+//         for (const name of names) {
+//           const interest = await tx.interest.upsert({
+//             where: { name },
+//             create: { name },
+//             update: {},
+//           });
 
-          await tx.profileInterest.create({
-            data: { userId: profile.id, interestId: interest.id },
-          });
-        }
-      }
+//           await tx.profileInterest.create({
+//             data: { userId: profile.id, interestId: interest.id },
+//           });
+//         }
+//       }
 
-      // ---------- APP INTERESTS ----------
-      if (Array.isArray(body.appInterests)) {
-        await tx.profileAppInterests.deleteMany({ where: { userId: profile.id } });
+//       // ---------- APP INTERESTS ----------
+//       if (Array.isArray(body.appInterests)) {
+//         await tx.profileAppInterests.deleteMany({ where: { userId: profile.id } });
 
-        const names = [...new Set(body.appInterests.map((n) => String(n).trim()).filter(Boolean))];
+//         const names = [...new Set(body.appInterests.map((n) => String(n).trim()).filter(Boolean))];
 
-        const rows = await Promise.all(
-          names.map(async (name) =>
-            tx.appInterest.upsert({
-              where: { name },
-              create: { name },
-              update: {},
-              select: { id: true },
-            })
-          )
-        );
+//         const rows = await Promise.all(
+//           names.map(async (name) =>
+//             tx.appInterest.upsert({
+//               where: { name },
+//               create: { name },
+//               update: {},
+//               select: { id: true },
+//             })
+//           )
+//         );
 
-      await tx.profileAppInterests.createMany({
-        data: rows.map((r) => ({
-          userId: profile.id,
-          interestId: r.id,
-        })),
-        skipDuplicates: true,
-      });
-      }
+//       await tx.profileAppInterests.createMany({
+//         data: rows.map((r) => ({
+//           userId: profile.id,
+//           interestId: r.id,
+//         })),
+//         skipDuplicates: true,
+//       });
+//       }
 
-      return tx.profile.findUnique({
-        where: { id: profile.id },
-        include: {
-          clanTree: { orderBy: { order: "asc" }, include: { clan: true } },
-          interests: { include: { interest: true } },
-          appInterests: { include: { interest: true } },
-        },
-      });
-    },{timeout: 20000});
+//       return tx.profile.findUnique({
+//         where: { id: profile.id },
+//         include: {
+//           clanTree: { orderBy: { order: "asc" }, include: { clan: true } },
+//           interests: { include: { interest: true } },
+//           appInterests: { include: { interest: true } },
+//         },
+//       });
+//     },{timeout: 20000});
 
-    if (!result) return res.status(404).json({ message: "Profile not found" });
+//     if (!result) return res.status(404).json({ message: "Profile not found" });
 
-    return res.status(200).json(result);
-  } catch (error: any) {
-    console.error("completeRegistration error:", error);
-    return res.status(500).json({ message: error?.message ?? "Internal server error" });
-  }
-}
+//     return res.status(200).json(result);
+//   } catch (error: any) {
+//     console.error("completeRegistration error:", error);
+//     return res.status(500).json({ message: error?.message ?? "Internal server error" });
+//   }
+// }
 
 
   // GET /profiles/username/check?username=...

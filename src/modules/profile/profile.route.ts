@@ -18,14 +18,14 @@ router.get("/post/:profileId", supabaseAuth, ProfileController.getPostsByProfile
 router.patch("/me/avatar", supabaseAuth, ProfileController.updateMyAvatar);
 router.patch("/me/cover", supabaseAuth, ProfileController.updateMyCover);
 // router.patch("/me/interests", supabaseAuth, ProfileController.updateMyInterests);
-router.post("/me/complete", supabaseAuth, ProfileController.completeRegistration);
+// router.post("/me/complete", supabaseAuth, ProfileController.completeRegistration);
 
 // public / semi-public
 router.get("/username/check", ProfileController.checkUsernameAvailability);
 router.get("/search", optionalSupabaseAuth, ProfileController.searchProfiles);
 router.get("/:username", optionalSupabaseAuth, ProfileController.getProfileByUsername);
 
-router.patch("/complete-registration", supabaseAuth, ProfileController.completeRegistration);
+// router.patch("/complete-registration", supabaseAuth, ProfileController.completeRegistration);
 
 
 

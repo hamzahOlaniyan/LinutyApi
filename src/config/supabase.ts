@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 
+
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_KEY;
 
@@ -14,22 +16,23 @@ if (!supabaseServiceRoleKey) {
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
+    persistSession: false,
+    detectSessionInUrl: false,
   }
 });
 
 // module.exports = supabase;
-async function checkConnection() {
-   const { data, error } = await supabaseAdmin
-      .from("profile") // any existing table
-      .select("id")
-      .limit(1);
+// async function checkConnection() {
+//    const { data, error } = await supabaseAdmin
+//       .from("profile") // any existing table
+//       .select("id")
+//       .limit(1);
 
-   if (error) {
-      console.error("❌ Supabase connection failed:", error.message);
-   } else {
-      console.log("✅ Supabase connected. Sample data:", data);
-   }
-}
+//    if (error) {
+//       console.error("❌ Supabase connection failed:", error.message);
+//    } else {
+//       console.log("✅ Supabase connected. Sample data:", data);
+//    }
+// }
 
-checkConnection();
+// checkConnection();

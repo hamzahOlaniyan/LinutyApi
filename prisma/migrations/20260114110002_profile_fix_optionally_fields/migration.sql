@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "profile" ALTER COLUMN "gender" DROP NOT NULL,
+ALTER COLUMN "dateOfBirth" DROP NOT NULL,
+ALTER COLUMN "avatarUrl" DROP NOT NULL,
+ALTER COLUMN "ethnicity" DROP NOT NULL;

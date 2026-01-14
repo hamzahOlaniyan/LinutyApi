@@ -7,62 +7,78 @@ datasource db {
 }
 
 model Profile {
-  id                      String                    @id @default(uuid()) @db.Uuid
-  userId                  String                    @unique @db.Uuid
-  firstName               String                    @default("")
-  lastName                String                    @default("")
-  fullName                String?
-  username                String                    @unique
-  gender                  String?
-  dateOfBirth             DateTime?
-  email                   String                    @unique
-  country                 String?                   @default("")
-  city                    String?                   @default("")
-  district                String?                   @default("")
-  location                String                    @default("")
-  bio                     String                    @default("Connecting with amazing people and building great things together.")
-  profession              String?
-  countryCode             String?
-  avatarUrl               String?
-  coverUrl                String?
-  lineageMainSurname      String?
-  lineageRootVillage      String?
-  isVerified              Boolean                   @default(false)
-  createdAt               DateTime                  @default(now()) @db.Timestamptz(6)
-  updatedAt               DateTime                  @updatedAt @db.Timestamptz(6)
-  ethnicity               String?
-  occupation              String?
-  isProfileComplete       Boolean                   @default(false)
-  blocksAsBlocked         Block[]                   @relation("BlocksBlocked")
-  blocksAsBlocker         Block[]                   @relation("BlocksBlocker")
-  comments                Comment[]
-  commentReactions        CommentReaction[]
-  conversationsOwned      Conversation[]            @relation("ConversationsCreatedBy")
-  conversationMembers     ConversationParticipant[]
-  clanTree                ProfileClan[]
-  kinshipsA               Kinship[]                 @relation("ProfileAKinships")
-  kinshipsB               Kinship[]                 @relation("ProfileBKinships")
-  lineagesCreated         Lineage[]                 @relation("LineagesCreatedBy")
-  lineageMembershipsAdded LineageMembership[]       @relation("LineageMembershipsAddedBy")
-  lineageMemberships      LineageMembership[]
-  messages                Message[]
-  messageReads            MessageRead[]
-  mutesAsMuted            Mute[]                    @relation("MutesMuted")
-  mutesAsMuter            Mute[]                    @relation("MutesMuter")
-  notificationsAsActor    Notification[]            @relation("NotificationsActor")
-  notifications           Notification[]            @relation("NotificationsRecipient")
-  posts                   Post[]
-  postReactions           PostReaction[]
-  product                 Product[]
-  interests               ProfileInterest[]
-  appInterests            ProfileAppInterests[]
-  settings                ProfileSettings?
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
 
+  firstName String @default("")
+  lastName  String @default("")
+  fullName  String?
+  username  String @unique
+
+  gender       String?
+  dateOfBirth  DateTime?
+  ethnicity    String?
+  email        String                @unique
+  bio          String?               @default("")
+  profession   String?
+  avatarUrl    String?
+  coverUrl     String?
+  interests    ProfileInterest[]
+  appInterests ProfileAppInterests[]
+
+  //. LOCATION
+  country     String? @default("")
+  city        String? @default("")
+  district    String? @default("")
+  location    String? @default("")
+  countryCode String?
+
+  isProfileComplete Boolean @default(false)
+
+  lineageMainSurname String?
+  lineageRootVillage String?
+  isVerified         Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  // CLANS
+  rootClan  RootClans? 
+  clan ProfileClan[]
+  lineage String[]
+
+  //MESSAGE
+  messages             Message[]
+  messageReads         MessageRead[]
+
+ // NOTIFICATION
+  notificationsAsActor Notification[] @relation("NotificationsActor")
+  notifications        Notification[] @relation("NotificationsRecipient")
+
+  conversationsOwned  Conversation[]            @relation("ConversationsCreatedBy")
+  conversationMembers ConversationParticipant[]
+
+  //POST
+  posts         Post[]
+  postReactions PostReaction[]
+  product       Product[]
+
+  //COMMENTS
+  comments         Comment[]
+  commentReactions CommentReaction[]
+
+  //SETTING
+  settings        ProfileSettings?
+  blocksAsBlocked Block[]          @relation("BlocksBlocked")
+  blocksAsBlocker Block[]          @relation("BlocksBlocker")
+  mutesAsMuted         Mute[]         @relation("MutesMuted")
+  mutesAsMuter         Mute[]         @relation("MutesMuter")
+
+  //FRIENDS
   sentFriendRequests     FriendRequest[] @relation("FriendRequestsSent")
   receivedFriendRequests FriendRequest[] @relation("FriendRequestsReceived")
-
-  friendshipsA Friendship[] @relation("FriendshipA")
-  friendshipsB Friendship[] @relation("FriendshipB")
+  friendshipsA           Friendship[]    @relation("FriendshipA")
+  friendshipsB           Friendship[]    @relation("FriendshipB")
 
   @@map("profile")
 }
@@ -117,64 +133,16 @@ model Clan {
   members ProfileClan[]
 }
 
-
 model ProfileClan {
-  id        String   @id @default(uuid()) @db.Uuid
-  profileId String   @db.Uuid
-  clanId    String   @db.Uuid
+  id        String @id @default(uuid()) @db.Uuid
+  profileId String @db.Uuid
+  clanId    String @db.Uuid
   order     Int
 
   profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   clan    Clan    @relation(fields: [clanId], references: [id], onDelete: Cascade)
 
   @@unique([profileId, order])
-}
-
-model Lineage {
-  id             String              @id @default(uuid()) @db.Uuid
-  name           String
-  type           LineageType         @default(FAMILY)
-  primarySurname String?
-  rootVillage    String?
-  rootRegion     String?
-  description    String?
-  createdById    String?             @db.Uuid
-  createdAt      DateTime            @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime            @updatedAt @db.Timestamptz(6)
-  createdBy      Profile?            @relation("LineagesCreatedBy", fields: [createdById], references: [id])
-  memberships    LineageMembership[]
-  notifications  Notification[]
-  posts          Post[]
-}
-
-model LineageMembership {
-  id               String      @id @default(uuid()) @db.Uuid
-  lineageId        String      @db.Uuid
-  profileId        String      @db.Uuid
-  role             LineageRole @default(DESCENDANT)
-  generation       Int?
-  isPrimaryLineage Boolean     @default(false)
-  addedById        String?     @db.Uuid
-  createdAt        DateTime    @default(now()) @db.Timestamptz(6)
-  addedBy          Profile?    @relation("LineageMembershipsAddedBy", fields: [addedById], references: [id])
-  lineage          Lineage     @relation(fields: [lineageId], references: [id])
-  profile          Profile     @relation(fields: [profileId], references: [id])
-
-  @@unique([lineageId, profileId])
-}
-
-model Kinship {
-  id           String      @id @default(uuid()) @db.Uuid
-  profileIdA   String      @db.Uuid
-  profileIdB   String      @db.Uuid
-  relationAtoB KinshipType
-  verified     Boolean     @default(false)
-  verifiedById String?     @db.Uuid
-  createdAt    DateTime    @default(now()) @db.Timestamptz(6)
-  profileA     Profile     @relation("ProfileAKinships", fields: [profileIdA], references: [id])
-  profileB     Profile     @relation("ProfileBKinships", fields: [profileIdB], references: [id])
-
-  @@unique([profileIdA, profileIdB, relationAtoB])
 }
 
 model Block {
@@ -205,7 +173,7 @@ model Post {
   content       String?
   visibility    PostVisibility @default(PUBLIC)
   locationText  String?
-  lineageId     String?        @db.Uuid
+  // lineageId     String?        @db.Uuid
   commentCount  Int            @default(0)
   likeCount     Int            @default(0)
   shareCount    Int            @default(0)
@@ -214,7 +182,7 @@ model Post {
   comments      Comment[]
   mediaFiles    MediaFile[]
   notifications Notification[]
-  lineage       Lineage?       @relation(fields: [lineageId], references: [id])
+  // lineage       Lineage?       @relation(fields: [lineageId], references: [id])
   author        Profile        @relation(fields: [profileId], references: [id])
   reactions     PostReaction[]
 }
@@ -332,7 +300,7 @@ model Notification {
   createdAt   DateTime         @default(now()) @db.Timestamptz(6)
   sender      Profile?         @relation("NotificationsActor", fields: [senderId], references: [id])
   comment     Comment?         @relation(fields: [commentId], references: [id])
-  lineage     Lineage?         @relation(fields: [lineageId], references: [id])
+  // lineage     Lineage?         @relation(fields: [lineageId], references: [id])
   request     FriendRequest?   @relation(fields: [requestId], references: [id])
   message     Message?         @relation(fields: [messageId], references: [id])
   post        Post?            @relation(fields: [postId], references: [id])
@@ -442,32 +410,32 @@ enum MediaType {
   OTHER
 }
 
-enum LineageType {
-  FAMILY
-  CLAN
-  SURNAME_LINE
-  TRIBE
-}
+// enum LineageType {
+//   FAMILY
+//   CLAN
+//   SURNAME_LINE
+//   TRIBE
+// }
 
-enum LineageRole {
-  ANCESTOR
-  DESCENDANT
-  SPOUSE
-  EXTENDED
-}
+// enum LineageRole {
+//   ANCESTOR
+//   DESCENDANT
+//   SPOUSE
+//   EXTENDED
+// }
 
-enum KinshipType {
-  PARENT
-  CHILD
-  SIBLING
-  SPOUSE
-  GRANDPARENT
-  GRANDCHILD
-  COUSIN
-  UNCLE_AUNT
-  NEPHEW_NIECE
-  OTHER
-}
+// enum KinshipType {
+//   PARENT
+//   CHILD
+//   SIBLING
+//   SPOUSE
+//   GRANDPARENT
+//   GRANDCHILD
+//   COUSIN
+//   UNCLE_AUNT
+//   NEPHEW_NIECE
+//   OTHER
+// }
 
 enum PostVisibility {
   PUBLIC
@@ -521,4 +489,14 @@ enum FriendRequestStatus {
   ACCEPTED
   DECLINED
   CANCELLED
+}
+
+enum RootClans {
+  DAROOD
+  HAWIYE
+  GARDHEERE
+  DIR
+  ISAAQ
+  RAXANWEYN
+  SHEEKHAL
 }

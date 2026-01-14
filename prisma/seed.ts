@@ -1,25 +1,21 @@
-
-// prisma/seed.ts
 import "dotenv/config";
 import { faker } from "@faker-js/faker";
 import {
   Available,
   FriendRequestStatus,
-  KinshipType,
-  LineageRole,
-  LineageType,
   ListingStatus,
   MediaType,
   NotificationType,
   PostVisibility,
   ProductCondition,
-  ReactionType
+  ReactionType,
+  RootClans
 } from "@prisma/client";
 import { prisma } from '../src/config/prisma'; // use your existing client
+import { create } from "domain";
 
 
 const NUM_PROFILES = 20;
-const NUM_LINEAGES = 5;
 const NUM_POSTS = 40;
 const MAX_IMAGES_PER_POST = 5;
 const NUM_CONVERSATIONS = 10;
@@ -51,6 +47,7 @@ async function seedInterests() {
     "Reading"
   ];
 
+
   await prisma.interest.createMany({
     data: interestNames.map(name => ({ name })),
     skipDuplicates: true
@@ -62,8 +59,20 @@ async function seedInterests() {
 }
 
 async function seedProfiles() {
+  // 1) Ensure Clan rows exist
+  const CLANS = ["issaaq", "wali", "ish", "abdi", "harti", "ogaden", "gadabuursi"];
+
+  await prisma.clan.createMany({
+    data: CLANS.map((name) => ({ name })),
+    skipDuplicates: true,
+  });
+
+  const clansInDb = await prisma.clan.findMany();
+  const clanIdByName = new Map(clansInDb.map((c) => [c.name, c.id]));
+
   const profiles: { id: string; username: string; email: string }[] = [];
 
+  // 2) Create profiles
   for (let i = 0; i < NUM_PROFILES; i++) {
     const firstName = faker.person.firstName();
     const lastName = faker.person.lastName();
@@ -73,12 +82,24 @@ async function seedProfiles() {
 
     // ensure uniqueness for username + email (because your schema enforces @unique)
     const uniqueSuffix = faker.string.alphanumeric(6).toLowerCase();
-    const finalUsername = i === 0 ? username : safeUsername(`${username}_${uniqueSuffix}`);
+    const finalUsername = safeUsername(`${username}_${uniqueSuffix}`);
 
     const email = faker.internet
       .email({ firstName, lastName, provider: "example.com" })
       .toLowerCase()
       .replace(/@/, `+${uniqueSuffix}@`);
+
+    const rootClan = faker.helpers.arrayElement<RootClans>([
+      "DAROOD",
+      "HAWIYE",
+      "GARDHEERE",
+      "DIR",
+      "ISAAQ",
+      "RAXANWEYN",
+      "SHEEKHAL",
+    ]);
+
+    const picked = faker.helpers.arrayElements(CLANS, { min: 2, max: 5 });
 
     const profile = await prisma.profile.create({
       data: {
@@ -86,20 +107,25 @@ async function seedProfiles() {
         email,
         firstName,
         lastName,
+        fullName: `${firstName} ${lastName}`,
         username: finalUsername,
+
         gender: faker.helpers.arrayElement(["male", "female", "other"]),
         dateOfBirth: faker.date.birthdate({ min: 1970, max: 2010, mode: "year" }),
+
         country: faker.location.country(),
         city: faker.location.city(),
         district: faker.location.street(),
         location: faker.location.streetAddress(),
-        bio: faker.lorem.sentence(),
         countryCode: faker.location.countryCode(),
+
+        bio: faker.lorem.sentence(),
+        profession: faker.person.jobTitle(),
         avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${finalUsername}`,
         coverUrl: `https://picsum.photos/seed/${finalUsername}/1200/400`,
-        lineageMainSurname: lastName,
-        lineageRootVillage: faker.location.city(),
-        ethnicity: faker.helpers.arrayElement([ "Yoruba",
+
+        ethnicity: faker.helpers.arrayElement([
+          "Yoruba",
           "Igbo",
           "Hausa",
           "Fulani",
@@ -108,15 +134,41 @@ async function seedProfiles() {
           "Edo",
           "Kanuri",
           "Ibibio",
-          "Nupe"]),
-        occupation: faker.person.jobTitle(),
+          "Nupe",
+        ]),
+
+        // ✅ your clan fields
+        rootClan,
+        lineage: faker.helpers.arrayElements(
+          [
+            "Cumar",
+            "Tolomogge",
+            "Dabarre",
+            "Musse",
+            "Maxamed",
+            "Habar Awradeen",
+            "Ibraahim",
+            "Waqla",
+            "Idde",
+            "Hinteere",
+          ],
+          { min: 2, max: 10 }
+        ),
+
+        // ✅ join table rows: ProfileClan
+        clan: {
+          create: picked.map((name, idx) => ({
+            order: idx + 1,
+            clan: { connect: { id: clanIdByName.get(name)! } },
+          })),
+        },
+
         isVerified: faker.datatype.boolean(),
-        isProfileComplete: faker.datatype.boolean()
-      }
+        isProfileComplete: faker.datatype.boolean(),
+      },
     });
 
-    // ProfileSettings is optional on Profile, but profileId is the PK there,
-    // so we create it here for most users.
+    // optional settings
     if (faker.datatype.boolean()) {
       await prisma.profileSettings.create({
         data: {
@@ -125,8 +177,8 @@ async function seedProfiles() {
           showLastSeen: faker.datatype.boolean(),
           allowTagging: faker.datatype.boolean(),
           allowMessagesFrom: faker.helpers.arrayElement(["everyone", "friends", "no_one"]),
-          discoveryAllowLineage: faker.datatype.boolean()
-        }
+          discoveryAllowLineage: faker.datatype.boolean(),
+        },
       });
     }
 
@@ -136,6 +188,8 @@ async function seedProfiles() {
   console.log(`✅ Profiles: ${profiles.length}`);
   return profiles;
 }
+
+
 
 async function seedProfileInterests(
   profiles: { id: string }[],
@@ -169,75 +223,6 @@ async function seedProfileInterests(
   }
 
   console.log(`✅ ProfileInterest links: ${links}`);
-}
-
-async function seedLineages(profiles: { id: string }[]) {
-  const lineages = [];
-
-  for (let i = 0; i < NUM_LINEAGES; i++) {
-    const creator = faker.helpers.arrayElement(profiles);
-
-    const lineage = await prisma.lineage.create({
-      data: {
-        name: `${faker.word.adjective()} ${faker.person.lastName()} Family`,
-        type: faker.helpers.arrayElement([
-          LineageType.FAMILY,
-          LineageType.CLAN,
-          LineageType.SURNAME_LINE,
-          LineageType.TRIBE
-        ]),
-        primarySurname: faker.person.lastName(),
-        rootVillage: faker.location.city(),
-        rootRegion: faker.location.state(),
-        description: faker.lorem.sentence(),
-        createdById: creator.id
-      }
-    });
-
-    lineages.push(lineage);
-  }
-
-  console.log(`✅ Lineages: ${lineages.length}`);
-
-  // memberships
-  let membershipCount = 0;
-  for (const lineage of lineages) {
-    const members = faker.helpers.arrayElements(
-      profiles,
-      faker.number.int({ min: 4, max: 8 })
-    );
-
-    for (const [index, profile] of members.entries()) {
-      await prisma.lineageMembership.upsert({
-        where: {
-          lineageId_profileId: {
-            lineageId: lineage.id,
-            profileId: profile.id
-          }
-        },
-        update: {},
-        create: {
-          lineageId: lineage.id,
-          profileId: profile.id,
-          role:
-            index === 0
-              ? LineageRole.ANCESTOR
-              : faker.helpers.arrayElement([
-                  LineageRole.DESCENDANT,
-                  LineageRole.SPOUSE,
-                  LineageRole.EXTENDED
-                ]),
-          generation: faker.number.int({ min: 1, max: 5 }),
-          isPrimaryLineage: faker.datatype.boolean(),
-          addedById: lineage.createdById ?? undefined
-        }
-      });
-      membershipCount++;
-    }
-  }
-
-  console.log(`✅ LineageMemberships: ${membershipCount}`);
-  return lineages;
 }
 
 async function seedFriendRequestsAndFriendships(profiles: { id: string }[]) {
@@ -325,16 +310,16 @@ async function seedFriendRequestsAndFriendships(profiles: { id: string }[]) {
   console.log(`✅ Friendships: ${friendshipCount}`);
 }
 
-async function seedPosts(profiles: { id: string }[], lineages: { id: string }[]) {
+async function seedPosts(profiles: { id: string }[]) {
   const posts = [];
 
   for (let i = 0; i < NUM_POSTS; i++) {
     const author = faker.helpers.arrayElement(profiles);
 
-    const lineage =
-      faker.datatype.boolean() && lineages.length > 0
-        ? faker.helpers.arrayElement(lineages)
-        : null;
+    // const lineage =
+    //   faker.datatype.boolean() && lineages.length > 0
+    //     ? faker.helpers.arrayElement(lineages)
+    //     : null;
 
     const visibility = faker.helpers.arrayElement([
       PostVisibility.PUBLIC,
@@ -349,7 +334,7 @@ async function seedPosts(profiles: { id: string }[], lineages: { id: string }[])
         content: faker.lorem.sentences({ min: 1, max: 3 }),
         visibility,
         locationText: faker.location.city(),
-        lineageId: lineage?.id ?? null
+        // lineageId: lineage?.id ?? null
       }
     });
 
@@ -553,54 +538,6 @@ async function seedConversationsMessagesAndReads(profiles: { id: string }[]) {
   return conversations;
 }
 
-async function seedKinships(profiles: { id: string }[]) {
-  const relations = [
-    KinshipType.PARENT,
-    KinshipType.CHILD,
-    KinshipType.SIBLING,
-    KinshipType.COUSIN,
-    KinshipType.UNCLE_AUNT,
-    KinshipType.NEPHEW_NIECE,
-    KinshipType.GRANDPARENT,
-    KinshipType.GRANDCHILD
-  ];
-
-  let count = 0;
-
-  for (const profile of profiles) {
-    const others = profiles.filter(p => p.id !== profile.id);
-    const relatives = faker.helpers.arrayElements(others, faker.number.int({ min: 1, max: 3 }));
-
-    for (const other of relatives) {
-      const relationAtoB = faker.helpers.arrayElement(relations);
-
-      await prisma.kinship.upsert({
-        where: {
-          profileIdA_profileIdB_relationAtoB: {
-            profileIdA: profile.id,
-            profileIdB: other.id,
-            relationAtoB
-          }
-        },
-        update: {},
-        create: {
-          profileIdA: profile.id,
-          profileIdB: other.id,
-          relationAtoB,
-          verified: faker.datatype.boolean(),
-          verifiedById: faker.datatype.boolean()
-            ? faker.helpers.arrayElement(profiles).id
-            : null
-        }
-      });
-
-      count++;
-    }
-  }
-
-  console.log(`✅ Kinships: ${count}`);
-}
-
 async function seedBlocksAndMutes(profiles: { id: string }[]) {
   let blocks = 0;
   let mutes = 0;
@@ -784,24 +721,6 @@ async function seedNotifications() {
     }
   }
 
-  // LINEAGE_INVITE notifications (for some memberships)
-  const memberships = await prisma.lineageMembership.findMany();
-  for (const mem of memberships) {
-    if (!faker.datatype.boolean()) continue;
-
-    await prisma.notification.create({
-      data: {
-        recipientId: mem.profileId,
-        senderId: mem.addedById ?? null,
-        type: NotificationType.LINEAGE_INVITE,
-        lineageId: mem.lineageId,
-        isRead: faker.datatype.boolean()
-      }
-    });
-
-    count++;
-  }
-
   console.log(`✅ Notifications: ${count}`);
 }
 
@@ -830,27 +749,28 @@ async function main() {
   await prisma.friendship.deleteMany();
   await prisma.friendRequest.deleteMany();
 
-  await prisma.kinship.deleteMany();
-  await prisma.lineageMembership.deleteMany();
-  await prisma.lineage.deleteMany();
+
 
   await prisma.profileInterest.deleteMany();
   await prisma.interest.deleteMany();
 
   await prisma.profileSettings.deleteMany();
+
+  await prisma.profileClan.deleteMany();
+  await prisma.clan.deleteMany();
+
   await prisma.profile.deleteMany();
 
   const interests = await seedInterests();
   const profiles = await seedProfiles();
   await seedProfileInterests(profiles, interests);
 
-  const lineages = await seedLineages(profiles);
 
   await seedFriendRequestsAndFriendships(profiles);
-  await seedKinships(profiles);
+
   await seedBlocksAndMutes(profiles);
 
-  const posts = await seedPosts(profiles, lineages);
+  const posts = await seedPosts(profiles);
   await seedComments(posts, profiles);
   await seedReactions(posts, profiles);
 

@@ -1,12 +1,6 @@
 import express, { Response, Request } from "express";
 import cors from "cors";
-import { config } from "dotenv";
-import { connectDB } from "./config/prisma";
 import  { rootRouter } from "./routes";
-
-
-config();
-connectDB();
 
 export const app = express();
 

@@ -71,26 +71,26 @@ export async function globalSearch(req: AuthedRequest, res: Response) {
     // ----------------------
     // 2) LINEAGES
     // ----------------------
-    const lineages = await prisma.lineage.findMany({
-      where: {
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { primarySurname: { contains: q, mode: "insensitive" } },
-          { rootVillage: { contains: q, mode: "insensitive" } },
-          { rootRegion: { contains: q, mode: "insensitive" } }
-        ]
-      },
-      take: limit,
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        primarySurname: true,
-        rootVillage: true,
-        rootRegion: true,
-        createdAt: true
-      }
-    });
+    // const lineages = await prisma.lineage.findMany({
+    //   where: {
+    //     OR: [
+    //       { name: { contains: q, mode: "insensitive" } },
+    //       { primarySurname: { contains: q, mode: "insensitive" } },
+    //       { rootVillage: { contains: q, mode: "insensitive" } },
+    //       { rootRegion: { contains: q, mode: "insensitive" } }
+    //     ]
+    //   },
+    //   take: limit,
+    //   select: {
+    //     id: true,
+    //     name: true,
+    //     type: true,
+    //     primarySurname: true,
+    //     rootVillage: true,
+    //     rootRegion: true,
+    //     createdAt: true
+    //   }
+    // });
 
     // ----------------------
     // 3) POSTS (simple text search)
@@ -133,7 +133,7 @@ export async function globalSearch(req: AuthedRequest, res: Response) {
     return res.json({
       query: q,
       profiles,
-      lineages,
+      // lineages,
       posts
     });
   } catch (error) {

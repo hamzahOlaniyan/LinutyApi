@@ -4,10 +4,10 @@ import profileRoutes from "../modules/profile/profile.route";
 import feedRouter from "../modules/feed/feed.route";
 import postRoutes from "../modules/post/post.route";
 import commentRoutes from "../modules/comments/comments.route";
-import productRoutes from "../modules/product/product.route";
 import friendsRoutes from "../modules/friends/friends.route";
 import notificationRoutes from "../modules/notification/notification.route";
 import mediaRouter from "../modules/media/media.routes";
+import productRoutes from "../modules/product/product.route";
 
 const rootRouter:Router = Router()
 

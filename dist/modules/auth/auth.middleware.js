@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.supabaseAuth = supabaseAuth;
+exports.optionalSupabaseAuth = optionalSupabaseAuth;
 const supabase_1 = require("../../config/supabase");
 async function supabaseAuth(req, res, next) {
     try {
@@ -25,5 +26,31 @@ async function supabaseAuth(req, res, next) {
     catch (err) {
         console.error("Auth middleware error:", err);
         return res.status(500).json({ message: "Auth error" });
+    }
+}
+async function optionalSupabaseAuth(req, res, next) {
+    try {
+        const header = req.headers.authorization;
+        if (!header || !header.startsWith("Bearer ")) {
+            // no token → just continue as anonymous
+            return next();
+        }
+        const token = header.split(" ")[1];
+        const { data: { user }, error } = await supabase_1.supabaseAdmin.auth.getUser(token);
+        if (error || !user) {
+            console.error("optionalSupabaseAuth getUser error:", error);
+            // invalid token → treat as anonymous, don't block
+            return next();
+        }
+        if (!user.email_confirmed_at) {
+            // you can choose to require verified even in optional, or not
+            return next();
+        }
+        req.user = user;
+        return next();
+    }
+    catch (err) {
+        console.error("optionalSupabaseAuth error:", err);
+        return next(); // fail-open
     }
 }

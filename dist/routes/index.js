@@ -1,0 +1,27 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.rootRouter = void 0;
+const express_1 = require("express");
+const auth_route_1 = __importDefault(require("../modules/auth/auth.route"));
+const profile_route_1 = __importDefault(require("../modules/profile/profile.route"));
+const feed_route_1 = __importDefault(require("../modules/feed/feed.route"));
+const post_route_1 = __importDefault(require("../modules/post/post.route"));
+const comments_route_1 = __importDefault(require("../modules/comments/comments.route"));
+const friends_route_1 = __importDefault(require("../modules/friends/friends.route"));
+const notification_route_1 = __importDefault(require("../modules/notification/notification.route"));
+const media_routes_1 = __importDefault(require("../modules/media/media.routes"));
+const product_route_1 = __importDefault(require("../modules/product/product.route"));
+const rootRouter = (0, express_1.Router)();
+exports.rootRouter = rootRouter;
+rootRouter.use("/auth", auth_route_1.default);
+rootRouter.use("/profile", profile_route_1.default);
+rootRouter.use("/feed", feed_route_1.default);
+rootRouter.use("/post", post_route_1.default);
+rootRouter.use("/", comments_route_1.default);
+rootRouter.use("/product", product_route_1.default);
+rootRouter.use("/friends", friends_route_1.default);
+rootRouter.use("/notifications", notification_route_1.default);
+rootRouter.use("/media", media_routes_1.default);

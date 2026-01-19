@@ -14,6 +14,20 @@ if (!supabaseServiceRoleKey) {
 exports.supabaseAdmin = (0, supabase_js_1.createClient)(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
         autoRefreshToken: false,
-        persistSession: false
+        persistSession: false,
+        detectSessionInUrl: false,
     }
 });
+// module.exports = supabase;
+// async function checkConnection() {
+//    const { data, error } = await supabaseAdmin
+//       .from("profile") // any existing table
+//       .select("id")
+//       .limit(1);
+//    if (error) {
+//       console.error("❌ Supabase connection failed:", error.message);
+//    } else {
+//       console.log("✅ Supabase connected. Sample data:", data);
+//    }
+// }
+// checkConnection();

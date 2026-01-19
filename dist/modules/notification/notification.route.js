@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const notification_controller_1 = require("./notification.controller");
+const auth_middleware_1 = require("../auth/auth.middleware");
+const notificationRoutes = (0, express_1.Router)();
+notificationRoutes.get("/", auth_middleware_1.supabaseAuth, notification_controller_1.NotificationController.getMyNotifications);
+notificationRoutes.get("/count", auth_middleware_1.supabaseAuth, notification_controller_1.NotificationController.getNotificationCount);
+notificationRoutes.patch("/:id/read", auth_middleware_1.supabaseAuth, notification_controller_1.NotificationController.markNotificationRead);
+notificationRoutes.patch("/read-all", auth_middleware_1.supabaseAuth, notification_controller_1.NotificationController.markAllNotificationsRead);
+exports.default = notificationRoutes;

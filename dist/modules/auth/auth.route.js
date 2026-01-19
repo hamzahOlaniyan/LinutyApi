@@ -1,14 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const validate_1 = require("../../middleware/validate");
+const auth_schema_1 = require("./auth.schema");
+const auth_middleware_1 = require("./auth.middleware");
 const auth_controller_1 = require("./auth.controller");
-const router = (0, express_1.Router)();
-// /auth/register -> create Supabase user, send OTP email
-router.post("/register", auth_controller_1.AuthController.register);
-// /auth/verify-otp -> verify OTP from email, confirm email, return tokens
-router.post("/verify-otp", auth_controller_1.AuthController.verifyOtp);
-// /auth/login -> normal email/password login
-router.post("/login", auth_controller_1.AuthController.login);
-// /auth/logout -> client should clear tokens
-router.post("/logout", auth_controller_1.AuthController.logout);
-exports.default = router;
+const authRoutes = (0, express_1.Router)();
+authRoutes.post("/signup", (0, validate_1.vaildator)(auth_schema_1.registerSchema), auth_controller_1.signup);
+authRoutes.post("/otp/send", auth_controller_1.sendEmailOtp);
+authRoutes.post("/otp/verify", auth_controller_1.verifyEmailOtp);
+// authRoutes.post("/otp", vaildator(optSchema), verifyOtp);
+authRoutes.patch("/me/complete", auth_middleware_1.supabaseAuth, auth_controller_1.completeRegistration);
+// authRoutes.get("/validate", AuthController.validateSession);
+// authRoutes.get("/user", AuthController.getUser);
+// authRoutes.get("/user-identities", AuthController.getUserIdentities);
+// authRoutes.post("/set-session", AuthController.setSession);
+authRoutes.post("/check-email", auth_controller_1.checkEmail);
+authRoutes.post("/check-username", auth_controller_1.checkUsername);
+authRoutes.post("/reset-password", auth_controller_1.resetPassword);
+authRoutes.post("/signin", auth_controller_1.signIn);
+authRoutes.post("/logout", auth_controller_1.logout);
+exports.default = authRoutes;

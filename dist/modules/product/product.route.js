@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../auth/auth.middleware");
+const product_controller_1 = require("./product.controller");
+const productRoutes = (0, express_1.Router)();
+productRoutes.get("/feed", auth_middleware_1.supabaseAuth, product_controller_1.ProductController.listMarketplace);
+productRoutes.post("/", auth_middleware_1.supabaseAuth, product_controller_1.ProductController.createProduct);
+productRoutes.post("/:productId/media", product_controller_1.ProductController.addProductMedia);
+productRoutes.get("/:productId", auth_middleware_1.supabaseAuth, product_controller_1.ProductController.getProductById);
+productRoutes.get("/:productId/media", auth_middleware_1.supabaseAuth, product_controller_1.ProductController.getProductMediaById);
+productRoutes.patch("/:productId", auth_middleware_1.supabaseAuth, product_controller_1.ProductController.updateProductContent);
+productRoutes.delete("/:productId", auth_middleware_1.supabaseAuth, product_controller_1.ProductController.deleteProduct);
+productRoutes.delete("/media/:mediaId", auth_middleware_1.supabaseAuth, product_controller_1.ProductController.deleteProductMedia);
+exports.default = productRoutes;

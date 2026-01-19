@@ -135,6 +135,7 @@ export async function getPostComments(req: Request, res: Response) {
             avatarUrl: true
           }
         },
+        _count:{select:{replies:true,reactions:true}}
         // replies: {
         //   take: 3, // preview
         //   orderBy: { createdAt: "asc" }

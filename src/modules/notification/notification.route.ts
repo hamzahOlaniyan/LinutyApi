@@ -4,11 +4,11 @@ import {
 } from "./notification.controller";
 import { supabaseAuth } from "../auth/auth.middleware";
 
-const router = Router();
+const notificationRoutes = Router();
 
-router.get("/", supabaseAuth, NotificationController.getMyNotifications);
-router.get("/count", supabaseAuth, NotificationController.getNotificationCount);
-router.patch("/:id/read", supabaseAuth, NotificationController.markNotificationRead);
-router.patch("/read-all", supabaseAuth, NotificationController.markAllNotificationsRead);
+notificationRoutes.get("/", supabaseAuth, NotificationController.getMyNotifications);
+notificationRoutes.get("/count", supabaseAuth, NotificationController.getNotificationCount);
+notificationRoutes.patch("/:id/read", supabaseAuth, NotificationController.markNotificationRead);
+notificationRoutes.patch("/read-all", supabaseAuth, NotificationController.markAllNotificationsRead);
 
-export default router;
+export default notificationRoutes;

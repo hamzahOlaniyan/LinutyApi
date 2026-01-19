@@ -245,9 +245,6 @@ static async getProfileByEmail(req: AuthedRequest, res: Response) {
         where: { userId },
         include: {
           settings: true,
-          lineageMemberships: {
-            include: { lineage: true }
-          },
           interests: {
             include: { interest: true }
           }

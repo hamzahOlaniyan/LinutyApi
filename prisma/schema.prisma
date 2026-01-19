@@ -47,11 +47,11 @@ model Profile {
   clan ProfileClan[]
   lineage String[]
 
-  //MESSAGE
+  // MESSAGE
   messages             Message[]
   messageReads         MessageRead[]
 
- // NOTIFICATION
+  // NOTIFICATION
   notificationsAsActor Notification[] @relation("NotificationsActor")
   notifications        Notification[] @relation("NotificationsRecipient")
 
@@ -81,6 +81,20 @@ model Profile {
   friendshipsB           Friendship[]    @relation("FriendshipB")
 
   @@map("profile")
+}
+
+model EmailOtp {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String
+  codeHash  String
+  purpose   String   
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([email, purpose])
+  @@index([expiresAt])
 }
 
 model ProfileSettings {

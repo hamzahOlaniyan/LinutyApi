@@ -2,25 +2,28 @@ import { Router } from "express";
 import { supabaseAuth, optionalSupabaseAuth } from "../auth/auth.middleware";
 import { PostController } from "./post.controller";
 
-const router = Router();
+const postRoutes = Router();
 
-router.post("/", supabaseAuth, PostController.createPost);
-router.post("/:postId/reactions", supabaseAuth, PostController.reactToPost);
-router.post("/:postId/media", PostController.addPostMedia);
-
-
-router.get("/:postId", optionalSupabaseAuth, PostController.getPostById);
-router.get("/:postId/creatorId", supabaseAuth, PostController.getPostCreatorId);
-router.get("/:postId/media",supabaseAuth, PostController.getMediaByPostId);
-router.get("/:postId/reactions/me", supabaseAuth, PostController.getMyPostReaction);
+postRoutes.post("/", supabaseAuth, PostController.createPost);
+postRoutes.post("/:postId/reactions", supabaseAuth, PostController.reactToPost);
+postRoutes.post("/:postId/media", PostController.addPostMedia);
 
 
+postRoutes.get("/:postId", optionalSupabaseAuth, PostController.getPostById);
+postRoutes.get("/:postId/creatorId", supabaseAuth, PostController.getPostCreatorId);
+postRoutes.get("/:postId/media",supabaseAuth, PostController.getMediaByPostId);
+postRoutes.get("/:postId/reactions/me", supabaseAuth, PostController.getMyPostReaction);
 
-router.patch("/:postId", supabaseAuth, PostController.updatePostContent);
-
-router.delete("/:postId", supabaseAuth, PostController.deletePost);
-router.delete("/media/:mediaId",supabaseAuth, PostController.deleteMedia);
+postRoutes.get("/:postId/reaction", supabaseAuth, PostController.getReactions);
 
 
 
-export default router;
+
+postRoutes.patch("/:postId", supabaseAuth, PostController.updatePostContent);
+
+postRoutes.delete("/:postId", supabaseAuth, PostController.deletePost);
+postRoutes.delete("/media/:mediaId",supabaseAuth, PostController.deleteMedia);
+
+
+
+export default postRoutes;

@@ -169,7 +169,7 @@ async function getCurrentProfile(req: AuthedRequest) {
 
 //     return res.json({
 //       data: serialized,
-//       nextCursor
+//       nextCursor 
 //     });
 //   } catch (error) {
 //     console.error("getHomeFeed error:", error);
@@ -180,17 +180,21 @@ async function getCurrentProfile(req: AuthedRequest) {
 
 export async function getHomeFeed(req: AuthedRequest, res: Response) {
   try {
+
+    const DEFAULT_LIMIT = 10;
+    const MAX_LIMIT = 30;
+
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const cursor = (req.query.cursor as string | undefined) || undefined;
 
     // Optional filters (you can expand later)
     const authorId = (req.query.authorId as string | undefined) || undefined;
-    const lineageId = (req.query.lineageId as string | undefined) || undefined;
+    // const lineageId = (req.query.lineageId as string | undefined) || undefined;
     const visibility = (req.query.visibility as string | undefined) || undefined;
 
     const where: Prisma.PostWhereInput = {
       ...(authorId ? { profileId: authorId } : {}),
-      ...(lineageId ? { lineageId } : {}),
+      // ...(lineageId ? { lineageId } : {}),
       ...(visibility ? { visibility: visibility as any } : {})
     };
 
@@ -198,29 +202,35 @@ export async function getHomeFeed(req: AuthedRequest, res: Response) {
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            avatarUrl: true
-          }
-        },
+      select:{
+        id:true,
+        profileId:true,
+        content:true,
+        visibility:true,
+        likeCount:true,
+        commentCount:true,
+        author:{select:{id:true, fullName:true, avatarUrl:true,username:true}},
         mediaFiles: true,
-        lineage: {
-          select: {
-            id: true,
-            name: true,
-            primarySurname: true,
-            rootVillage: true
-          }
-        },
-        _count: { select: { comments: true, reactions: true } }
-      }
+        createdAt:true,
+        _count:{ select: { comments:{where: {parentCommentId:null}} , reactions: true } }
+        
+      },
+      orderBy: { createdAt: "desc" },
     });
+     const postIds = posts.map(p => p.id);
+
+     const counts = await prisma.comment.groupBy({
+        by: ["postId"],
+        where: {
+          postId: { in: postIds },
+          parentCommentId: null,
+        },
+        _count: { _all: true },
+      });
+
+      const topLevelCountByPostId = new Map(
+        counts.map(c => [c.postId, c._count._all])
+      );
 
     let nextCursor: string | null = null;
     if (posts.length > limit) {
@@ -229,15 +239,17 @@ export async function getHomeFeed(req: AuthedRequest, res: Response) {
     }
 
     // BigInt safe serialization
-    const serialized = posts.map(p => ({
+    const result = posts.map(p => ({
       ...p,
-      mediaFiles: p.mediaFiles.map(m => ({
+      mediaFiles: p?.mediaFiles.map(m => ({
         ...m,
         sizeBytes: m.sizeBytes ? Number(m.sizeBytes) : 0
-      }))
+      })),
+      reactionCount: p._count.reactions,
+      topLevelCommentCount: topLevelCountByPostId.get(p.id) ?? 0,
     }));
 
-    return res.json({ data: serialized, nextCursor });
+    return res.json({ data: result, nextCursor });
   } catch (error) {
     console.error("getAllPostsFeed error:", error);
     return res.status(500).json({ message: "Internal server error" });

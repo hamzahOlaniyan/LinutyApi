@@ -4,12 +4,14 @@ import {  AuthedRequest } from "./auth.middleware";
 import { supabaseAdmin } from "../../config/supabase";
 import { supabase } from "../../lib/supabaseClient";
 import { reactToComment } from "../comments/comment.controller";
+import { Resend } from "resend";
 import { getProfile } from "../../utils/helpers/getProfile";
+import { generateOtpCode, hashOtp } from "../../utils/helpers/generateOtp";
 
 type completeRegistrationInput={
-      location?: string;
+      country?: string;
       dateOfBirth?: string;     
-      clan_tree?: string[];     
+      clan?: string[];     
       gender?: string | null;
       ethnicity?: string | null;
       fullName?: string | null;
@@ -19,6 +21,8 @@ type completeRegistrationInput={
       appInterests?: string[];
       isProfileComplete?:boolean
 }
+const resend = new Resend(process.env.RESEND_API_KEY!);
+
 
 
 // const buildAuthResponse = (session: any, user: any, profile?:any) => {
@@ -33,37 +37,66 @@ type completeRegistrationInput={
 //   };
 // };
 
-  export async function register(req: AuthedRequest, res: Response) {
+  export async function signup(req: AuthedRequest, res: Response) {
     try {
       const { email, password, username, firstName, lastName } = req.body;
 
-      if (!firstName || !lastName|| !email || !password ||username) return res.status(401).json({ error: "Fields cannot be left enpty!" });
+      if (!firstName || !lastName|| !email || !password || !username) return res.status(401).json({ error: "Fields cannot be left enpty!" });
 
-      const { data, error } = await supabaseAdmin.auth.signUp({
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
-        options: { data: { username } }
+        email_confirm:false
       });
 
-      if (error || !data.user) return res.status(400).json({ status:'failed', message: error?.message || "Sign up failed" });
+      const userId = data.user?.id;
+      if (!userId) return res.status(500).json({ status: "error", message: "Failed to create auth user" })
+
 
       const user = data.user;
       const fullname = `${firstName.trim()} ${lastName.trim()}`
 
-      await prisma.profile.create({
+      const profile = await prisma.profile.create({
         data: {
-          userId: user.id,
+          userId,
           email,
-          username: username ,
+          username ,
           firstName,
           lastName,
           fullName: fullname 
+        },
+        select:{id:true,userId:true,email:true,username:true,firstName:true,lastName
+          :true,fullName:true
         }
       });
 
+        const code = generateOtpCode(6);
+        const codeHash = hashOtp(email, code);
+        const ttlMin = Number(process.env.OTP_TTL_MINUTES ?? 10);
+        const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
+
+        await prisma.emailOtp.updateMany({
+          where: { email, purpose:'signup', usedAt: null },
+          data: { usedAt: new Date() },
+        });
+
+        await prisma.emailOtp.create({
+          data: { email, purpose: "signup", codeHash, expiresAt },
+        });
+
+       const result =  await resend.emails.send({
+          from: "onboarding@resend.dev",
+          to: email,
+          subject: "Your Linuty verification code",
+          html: `<p>Your code is <b>${code}</b>. It expires in ${ttlMin} minutes.</p>`,
+        });
+
+        
+      console.log("RESEND RESULT:", result);
+
       return res.status(201).json({
         status: "success",
-        data: user,
+        data: profile,
         message: "Registration was successful. Please check your email for the 6 digit OTP code."
       });
     } catch (err) {
@@ -71,33 +104,33 @@ type completeRegistrationInput={
       return res.status(500).json({ message: "Something went wrong" });
     }
   }
-  export async function verifyOtp(req: AuthedRequest, res: Response) {
-    try {
-      const { email, otp } = req.body;
+  // export async function verifyOtp(req: AuthedRequest, res: Response) {
+  //   try {
+  //     const { email, otp } = req.body;
 
-      if (!email || !otp) return res.status(400).json({ message: "Email and OTP are required" });
+  //     if (!email || !otp) return res.status(400).json({ message: "Email and OTP are required" });
 
-      const { data, error } = await supabaseAdmin.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "email" 
-      });
+  //     const { data, error } = await supabaseAdmin.auth.verifyOtp({
+  //       email,
+  //       token: otp,
+  //       type: "email" 
+  //     });
 
-      if (error) return res.status(400).json({ message: error.message });
+  //     if (error) return res.status(400).json({ message: error.message });
 
-      const { session, user } = data;
+  //     const { session, user } = data;
 
-      if (!session || !user) return res.status(400).json({ message: "Invalid or expired OTP" });
+  //     if (!session || !user) return res.status(400).json({ message: "Invalid or expired OTP" });
 
-      return res.status(200).json({session, user});
-      // return res.status(200).json(buildAuthResponse(session, user));
+  //     return res.status(200).json({status: "sucess", data: session,  user});
+  //     // return res.status(200).json(buildAuthResponse(session, user));
 
       
-    } catch (err) {
-      console.error("verifyOtp controller error:", err);
-      return res.status(500).json({ message: "Something went wrong" });
-    }
-  }
+  //   } catch (err) {
+  //     console.error("verifyOtp controller error:", err);
+  //     return res.status(500).json({ message: "Something went wrong" });
+  //   }
+  // }
 
 //    static async resendOtp(req:AuthedRequest,res:Response){
 //     try {
@@ -327,115 +360,107 @@ type completeRegistrationInput={
     }
 }
 
-export async function completeRegistration(req: AuthedRequest, res: Response) {
-
- const profileId = await getProfile(req.user?.id);
- if (!profileId) return null;
-
- 
- try {
-   const body = req.body ;
-   
-   console.log('complete registration');
-   console.log({profileId});
-   console.log({body});
+  export async function completeRegistration(req: AuthedRequest, res: Response){
+  try {
+    const authUserId = req.user.id;
+    const body = req.body as completeRegistrationInput;
 
     const result = await prisma.$transaction(async (tx) => {
+      // ✅ find profile by userId (auth user id)
+      const me = await tx.profile.findUnique({ where: { userId: authUserId } });
+      if (!me) return null;
+
       const profile = await tx.profile.update({
-        where: { userId:profileId.id},
+        where: { userId: authUserId },
          data: {
-           dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
-           gender: body.gender,
-           country: body.location,
-           rootClan:body.rootClan,
-           ethnicity: body.ethnicity,
-           clan:body.fullName,
-           lineage: body.lineage,
+          country: body.country,
+          dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+          gender: body.gender,
+          fullName:body.fullName,
+          ethnicity: body.ethnicity,
           avatarUrl: body.avatarUrl,
           profession: body.profession,
           isProfileComplete: true,
          },
       });
 
-  //     // ---------- CLAN TREE ----------
-  //     if (Array.isArray(body.clan_tree)) {
-  //       await tx.profileClan.deleteMany({ where: { profileId: profile.id } });
+      // ---------- CLAN TREE ----------
+      if (Array.isArray(body.clan)) {
+        await tx.profileClan.deleteMany({ where: { profileId: profile.id } });
 
-  //       const names = body.clan_tree.map((n) => String(n).trim()).filter(Boolean);
+        const names = body.clan.map((n) => String(n).trim()).filter(Boolean);
 
-  //       for (let i = 0; i < names.length; i++) {
-  //         const clan = await tx.clan.upsert({
-  //           where: { name: names[i] },
-  //           create: { name: names[i] },
-  //           update: {},
-  //         });
+        for (let i = 0; i < names.length; i++) {
+          const clan = await tx.clan.upsert({
+            where: { name: names[i] },
+            create: { name: names[i] },
+            update: {},
+          });
 
-  //         await tx.profileClan.create({
-  //           data: { profileId: profile.id, clanId: clan.id, order: i },
-  //         });
-  //       }
-  //     }
+          await tx.profileClan.create({
+            data: { profileId: profile.id, clanId: clan.id, order: i },
+          });
+        }
+      }
 
-  //     // ---------- INTERESTS ----------
-  //     if (Array.isArray(body.interest)) {
-  //       await tx.profileInterest.deleteMany({ where: { userId: profile.id } });
+      // ---------- INTERESTS ----------
+      if (Array.isArray(body.interest)) {
+        await tx.profileInterest.deleteMany({ where: { userId: profile.id } });
 
-  //       const names = [...new Set(body.interest.map((n) => String(n).trim()).filter(Boolean))];
+        const names = [...new Set(body.interest.map((n) => String(n).trim()).filter(Boolean))];
 
-  //       for (const name of names) {
-  //         const interest = await tx.interest.upsert({
-  //           where: { name },
-  //           create: { name },
-  //           update: {},
-  //         });
+        for (const name of names) {
+          const interest = await tx.interest.upsert({
+            where: { name },
+            create: { name },
+            update: {},
+          });
 
-  //         await tx.profileInterest.create({
-  //           data: { userId: profile.id, interestId: interest.id },
-  //         });
-  //       }
-  //     }
+          await tx.profileInterest.create({
+            data: { userId: profile.id, interestId: interest.id },
+          });
+        }
+      }
 
-  //     // ---------- APP INTERESTS ----------
-  //     if (Array.isArray(body.appInterests)) {
-  //       await tx.profileAppInterests.deleteMany({ where: { userId: profile.id } });
+      // ---------- APP INTERESTS ----------
+      if (Array.isArray(body.appInterests)) {
+        await tx.profileAppInterests.deleteMany({ where: { userId: profile.id } });
 
-  //       const names = [...new Set(body.appInterests.map((n) => String(n).trim()).filter(Boolean))];
+        const names = [...new Set(body.appInterests.map((n) => String(n).trim()).filter(Boolean))];
 
-  //       const rows = await Promise.all(
-  //         names.map(async (name) =>
-  //           tx.appInterest.upsert({
-  //             where: { name },
-  //             create: { name },
-  //             update: {},
-  //             select: { id: true },
-  //           })
-  //         )
-  //       );
+        const rows = await Promise.all(
+          names.map(async (name) =>
+            tx.appInterest.upsert({
+              where: { name },
+              create: { name },
+              update: {},
+              select: { id: true },
+            })
+          )
+        );
 
-  //     await tx.profileAppInterests.createMany({
-  //       data: rows.map((r) => ({
-  //         userId: profile.id,
-  //         interestId: r.id,
-  //       })),
-  //       skipDuplicates: true,
-  //     });
-  //     }
+      await tx.profileAppInterests.createMany({
+        data: rows.map((r) => ({
+          userId: profile.id,
+          interestId: r.id,
+        })),
+        skipDuplicates: true,
+      });
+      }
 
-  //     return tx.profile.findUnique({
-  //       where: { id: profile.id },
-  //       include: {
-  //         clanTree: { orderBy: { order: "asc" }, include: { clan: true } },
-  //         interests: { include: { interest: true } },
-  //         appInterests: { include: { interest: true } },
-  //       },
-  //     });
+      return tx.profile.findUnique({
+        where: { id: profile.id },
+        include: {
+          clan: { orderBy: { order: "asc" }, include: { clan: true } },
+          interests: { include: { interest: true } },
+          appInterests: { include: { interest: true } },
+        },
+      });
     },{timeout: 20000});
 
-    // if (!result) return res.status(404).json({ message: "Profile not found" });
+    if (!result) return res.status(404).json({ message: "Profile not found" });
 
-    // return res.status(200).json(result);
-  return res.status(201).json( {body, message:'complete registration'})
-
+    return res.status(200).json({status:"success", data:result, message:'Suceessfully completed profile'});
   } catch (error: any) {
     console.error("completeRegistration error:", error);
     return res.status(500).json({ message: error?.message ?? "Internal server error" });
@@ -465,6 +490,98 @@ export async function logout(req:AuthedRequest,res:Response) {
   
 }
 
+export async function sendEmailOtp(req: any, res: any) {
+  const { email, purpose = "signup" } = req.body as { email: string; purpose?: string };
+  if (!email) return res.status(400).json({ status: "error", message: "email is required" });
+
+  const code = generateOtpCode(6);
+  const codeHash = hashOtp(email, code);
+
+  const ttlMin = Number(process.env.OTP_TTL_MINUTES ?? 10);
+  const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
+
+  // Optional: invalidate old unused OTPs for this email+purpose
+  await prisma.emailOtp.updateMany({
+    where: { email, purpose, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+
+  await prisma.emailOtp.create({
+    data: { email, purpose, codeHash, expiresAt },
+  });
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM!,
+    to: email,
+    subject: "Your verification code",
+    html: `<p>Your code is <b>${code}</b>. It expires in ${ttlMin} minutes.</p>`,
+  });
+
+  return res.status(200).json({ status: "success", message: "OTP sent" });
+}
+
+export async function verifyEmailOtp(req: any, res: any) {
+  const { email, code, purpose = "signup" } = req.body as {
+    email: string;
+    code: string;
+    purpose?: string;
+  };
+
+  if (!email || !code) {
+    return res.status(400).json({ status: "error", message: "email and code are required" });
+  }
+
+  const now = new Date();
+  const codeHash = hashOtp(email, code);
+
+  const otp = await prisma.emailOtp.findFirst({
+    where: {
+      email,
+      purpose,
+      usedAt: null,
+      expiresAt: { gt: now },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otp) {
+    return res.status(400).json({ status: "error", message: "Invalid or expired code" });
+  }
+
+  // basic brute-force guard
+  if (otp.attempts >= 5) {
+    return res.status(429).json({ status: "error", message: "Too many attempts" });
+  }
+
+  if (otp.codeHash !== codeHash) {
+    await prisma.emailOtp.update({
+      where: { id: otp.id },
+      data: { attempts: { increment: 1 } },
+    });
+    return res.status(400).json({ status: "error", message: "Invalid or expired code" });
+  }
+
+    await prisma.emailOtp.update({
+      where: { id: otp.id } ,
+      data: { usedAt: now },
+    });
+
+    await prisma.profile.update({
+      where: { email },
+      data: { isVerified: true },
+    });
+
+    const { data } = await supabaseAdmin.auth.admin.listUsers();
+
+    const user = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (!user) return res.status(404).json({ status: "error", message: "User not found" });
+
+    await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      email_confirm: true,
+    });
+  
+    return res.status(200).json({ status: "success", message: "email verified!", verified:true });
+}
 
 
 

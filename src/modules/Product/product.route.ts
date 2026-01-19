@@ -1,24 +1,24 @@
 import { Router } from "express";
-import { ProductController } from "./product.controller";
 import { supabaseAuth } from "../auth/auth.middleware";
+import { ProductController } from "./product.controller";
 
-const router = Router();
-
-
-router.get("/feed", supabaseAuth, ProductController.listMarketplace);
+const productRoutes = Router();
 
 
-router.post("/", supabaseAuth, ProductController.createProduct);
-router.post("/:productId/media", ProductController.addProductMedia);
-
-router.get("/:productId", supabaseAuth, ProductController.getProductById);
-router.get("/:productId/media",supabaseAuth, ProductController.getProductMediaById);
-
-router.patch("/:productId", supabaseAuth, ProductController.updateProductContent);
-
-router.delete("/:productId", supabaseAuth, ProductController.deleteProduct);
-router.delete("/media/:mediaId",supabaseAuth, ProductController.deleteProductMedia);
+productRoutes.get("/feed", supabaseAuth, ProductController.listMarketplace);
 
 
+productRoutes.post("/", supabaseAuth, ProductController.createProduct);
+productRoutes.post("/:productId/media", ProductController.addProductMedia);
 
-export default router;
+productRoutes.get("/:productId", supabaseAuth, ProductController.getProductById);
+productRoutes.get("/:productId/media",supabaseAuth, ProductController.getProductMediaById);
+
+productRoutes.patch("/:productId", supabaseAuth, ProductController.updateProductContent);
+
+productRoutes.delete("/:productId", supabaseAuth, ProductController.deleteProduct);
+productRoutes.delete("/media/:mediaId",supabaseAuth, ProductController.deleteProductMedia);
+
+
+
+export default productRoutes;

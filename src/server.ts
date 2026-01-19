@@ -12,7 +12,7 @@ import feedRoutes from "./modules/feed/feed.route";
 import uploadRoutes from "./modules/upload/upload.routes";
 import mediaRoutes from "./modules/media/media.routes";
 import searchRoutes from "./modules/search/search.route";
-import productRoutes from "./modules/Product/product.route";
+import productRoutes from "./modules/product/product.route";
 import friendsRoutes from "./modules/friends/friends.route";
 import { config } from "dotenv";
 import { connectDB } from "./config/prisma";

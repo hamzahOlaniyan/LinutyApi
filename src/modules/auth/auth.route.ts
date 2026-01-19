@@ -2,14 +2,18 @@ import { Router } from "express";
 import { vaildator } from "../../middleware/validate";
 import { loginSchema, optSchema, registerSchema } from "./auth.schema";
 import { supabaseAuth } from "./auth.middleware";
-import { checkEmail,  checkUsername,  completeRegistration,  logout,  register, resetPassword, signIn, verifyOtp } from "./auth.controller";
+import { checkEmail,  checkUsername,  completeRegistration,  logout,  signup, resetPassword, sendEmailOtp, signIn, verifyEmailOtp } from "./auth.controller";
 
 const authRoutes:Router = Router();
 
-authRoutes.post("/register", vaildator(registerSchema), register);
-authRoutes.post("/otp", vaildator(optSchema), verifyOtp);
+authRoutes.post("/signup", vaildator(registerSchema), signup);
 
-authRoutes.post("/me/complete", supabaseAuth, completeRegistration);
+authRoutes.post("/otp/send", sendEmailOtp);
+authRoutes.post("/otp/verify", verifyEmailOtp);
+
+// authRoutes.post("/otp", vaildator(optSchema), verifyOtp);
+
+authRoutes.patch("/me/complete", supabaseAuth, completeRegistration);
 
 
 // authRoutes.get("/validate", AuthController.validateSession);

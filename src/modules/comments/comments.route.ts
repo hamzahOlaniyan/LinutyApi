@@ -12,23 +12,20 @@ import {
 } from "./comment.controller";
 import { supabaseAuth, optionalSupabaseAuth } from "../auth/auth.middleware";
 
-const router = Router();
+const commentRoutes = Router();
 
-// comments for a post
-router.get("/post/:postId/comment", optionalSupabaseAuth, getPostComments);
-router.post("/post/:postId/comment", supabaseAuth, createComment);
+commentRoutes.get("/post/:postId/comment", optionalSupabaseAuth, getPostComments);
+commentRoutes.post("/post/:postId/comment", supabaseAuth, createComment);
 
-router.get("/comments/:commentId/replies", supabaseAuth, getCommentReplies);
-
-
-// single comment operations
-router.patch("/comments/:commentId", supabaseAuth, updateComment);
-router.delete("/comments/:commentId", supabaseAuth, deleteComment);
-
-// reactions on comments
-router.post("/comments/:commentId/react", supabaseAuth, reactToComment);
-router.delete("/comments/:commentId/react", supabaseAuth, removeCommentReaction);
-router.get("/comments/:commentId/reactions/me", supabaseAuth, getMyCommentReaction);
+commentRoutes.get("/comments/:commentId/replies", supabaseAuth, getCommentReplies);
 
 
-export default router;
+commentRoutes.patch("/comments/:commentId", supabaseAuth, updateComment);
+commentRoutes.delete("/comments/:commentId", supabaseAuth, deleteComment);
+
+commentRoutes.post("/comments/:commentId/react", supabaseAuth, reactToComment);
+commentRoutes.delete("/comments/:commentId/react", supabaseAuth, removeCommentReaction);
+commentRoutes.get("/comments/:commentId/reactions/me", supabaseAuth, getMyCommentReaction);
+
+
+export default commentRoutes;

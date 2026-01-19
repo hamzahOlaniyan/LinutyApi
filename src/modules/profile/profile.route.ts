@@ -2,31 +2,31 @@ import { Router } from "express";
 import { supabaseAuth, optionalSupabaseAuth } from "../auth/auth.middleware";
 import { ProfileController } from "./profile.controller";
 
-const router = Router();
+const profileRoutes = Router();
 
 // authenticated
-router.get("/", supabaseAuth, ProfileController.getProfiles);
-router.get("/me", supabaseAuth, ProfileController.getMyProfile);
-router.get("/:profileId", supabaseAuth, ProfileController.getProfileById);
-router.get("/:email", supabaseAuth, ProfileController.getProfileByEmail);
+profileRoutes.get("/", supabaseAuth, ProfileController.getProfiles);
+profileRoutes.get("/me", supabaseAuth, ProfileController.getMyProfile);
+profileRoutes.get("/:profileId", supabaseAuth, ProfileController.getProfileById);
+profileRoutes.get("/:email", supabaseAuth, ProfileController.getProfileByEmail);
 
-router.get("/post/:profileId", supabaseAuth, ProfileController.getPostsByProfileId);
+profileRoutes.get("/post/:profileId", supabaseAuth, ProfileController.getPostsByProfileId);
 
 
 
-// router.patch("/me", supabaseAuth, ProfileController.updateMyProfile);
-router.patch("/me/avatar", supabaseAuth, ProfileController.updateMyAvatar);
-router.patch("/me/cover", supabaseAuth, ProfileController.updateMyCover);
-// router.patch("/me/interests", supabaseAuth, ProfileController.updateMyInterests);
-// router.post("/me/complete", supabaseAuth, ProfileController.completeRegistration);
+// profileRoutes.patch("/me", supabaseAuth, ProfileController.updateMyProfile);
+profileRoutes.patch("/me/avatar", supabaseAuth, ProfileController.updateMyAvatar);
+profileRoutes.patch("/me/cover", supabaseAuth, ProfileController.updateMyCover);
+// profileRoutes.patch("/me/interests", supabaseAuth, ProfileController.updateMyInterests);
+// profileRoutes.post("/me/complete", supabaseAuth, ProfileController.completeRegistration);
 
 // public / semi-public
-router.get("/username/check", ProfileController.checkUsernameAvailability);
-router.get("/search", optionalSupabaseAuth, ProfileController.searchProfiles);
-router.get("/:username", optionalSupabaseAuth, ProfileController.getProfileByUsername);
+profileRoutes.get("/username/check", ProfileController.checkUsernameAvailability);
+profileRoutes.get("/search", optionalSupabaseAuth, ProfileController.searchProfiles);
+profileRoutes.get("/:username", optionalSupabaseAuth, ProfileController.getProfileByUsername);
 
-// router.patch("/complete-registration", supabaseAuth, ProfileController.completeRegistration);
+// profileRoutes.patch("/complete-registration", supabaseAuth, ProfileController.completeRegistration);
 
 
 
-export default router;
+export default profileRoutes;

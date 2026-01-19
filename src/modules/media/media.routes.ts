@@ -1,13 +1,12 @@
 import { Router } from "express";
 import {  MediaFileController } from "./media.controller";
 
-const router = Router();
+const mediaRouter = Router();
 
-// internal callback from transcoder
-router.post("/hls-ready", MediaFileController.markMediaHlsReady);
+mediaRouter.post("/hls-ready", MediaFileController.markMediaHlsReady);
 
-router.get("/:profileId", MediaFileController.getMediaByProfileId);
-
+mediaRouter.get("/:profileId", MediaFileController.getMediaByProfileId);
 
 
-export default router;
+
+export default mediaRouter;

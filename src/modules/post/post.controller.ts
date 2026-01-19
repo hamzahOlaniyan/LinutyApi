@@ -5,6 +5,7 @@ import {   ReactionType } from "@prisma/client";
 import { NotificationService } from "../notification/notification.service";
 import { CreatePostInput } from "./post.validation";
 import type { MediaFile } from "@prisma/client";
+import { id } from "zod/v4/locales";
 
 
 function toJsonMedia(m: MediaFile) {
@@ -132,9 +133,7 @@ export class PostController {
     }
   }
 
-  /**
-   * GET /posts/:postId
-   */
+  
   static async getPostById(req: Request, res: Response) {
     try {
       const { postId } = req.params;
@@ -153,7 +152,6 @@ export class PostController {
             }
           },
           mediaFiles: true,
-          lineage: true
         }
       });
 
@@ -167,8 +165,6 @@ export class PostController {
       return res.status(500).json({ message: "Internal server error" });
     }
   }
-
-  
 
   static async getPostCreatorId(req: Request, res: Response) {
 
@@ -337,10 +333,28 @@ export class PostController {
       return res.status(500).json({ message: "Internal server error" });
     }
   }
-  /**
-   * DELETE /posts/:postId
-   * only author can delete
-   */
+
+  static async getReactions(req: AuthedRequest, res: Response) {
+    try {
+      const me = await getCurrentProfile(req);
+      if (!me) return res.status(401).json({ message: "Unauthenticated" });
+
+      const { postId } = req.params;
+
+      const reaction = await prisma.postReaction.findMany({
+        where:{postId:postId},
+        include:{profile:{select:{id:true,fullName:true,avatarUrl:true,
+          username:true
+        }}}
+      });
+
+      return res.status(200).json(reaction);
+    } catch (err) {
+      console.error("getMyPostReaction error:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  }
+  
   static async deletePost(req: AuthedRequest, res: Response) {
     try {
       const me = await getCurrentProfile(req);

@@ -9,7 +9,6 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, ssl: 
 const connectDB = async () => {
    try {
       await prisma.$connect();
-      console.log("Db connected via prisma");
    } catch (error) {
       console.error(`Failed to connect to the database: ${error}`);
       process.exit(1);

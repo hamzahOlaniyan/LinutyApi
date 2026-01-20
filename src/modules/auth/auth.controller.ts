@@ -1,7 +1,7 @@
 import type {   Response } from "express";
 import { prisma } from "../../config/prisma";
 import {  AuthedRequest } from "./auth.middleware";
-import { supabaseAdmin } from "../../config/supabase";
+import { getSupabaseAdmin } from "../../config/supabase";
 import { supabase } from "../../lib/supabaseClient";
 import { reactToComment } from "../comments/comment.controller";
 import { Resend } from "resend";
@@ -22,6 +22,8 @@ type completeRegistrationInput={
       isProfileComplete?:boolean
 }
 const resend = new Resend(process.env.RESEND_API_KEY!);
+
+const supabaseAdmin = getSupabaseAdmin();
 
 
 

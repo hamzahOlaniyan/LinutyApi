@@ -4,13 +4,14 @@ exports.supabaseAuth = supabaseAuth;
 exports.optionalSupabaseAuth = optionalSupabaseAuth;
 const supabase_1 = require("../../config/supabase");
 async function supabaseAuth(req, res, next) {
+    const supabaseAdmin = (0, supabase_1.getSupabaseAdmin)();
     try {
         const header = req.headers.authorization;
         if (!header || !header.startsWith("Bearer ")) {
             return res.status(401).json({ message: "Missing or invalid Authorization header" });
         }
         const token = header.split(" ")[1];
-        const { data: { user }, error } = await supabase_1.supabaseAdmin.auth.getUser(token);
+        const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
         if (error || !user) {
             console.error("supabase getUser error:", error);
             return res.status(401).json({ message: "Invalid token" });
@@ -29,6 +30,7 @@ async function supabaseAuth(req, res, next) {
     }
 }
 async function optionalSupabaseAuth(req, res, next) {
+    const supabaseAdmin = (0, supabase_1.getSupabaseAdmin)();
     try {
         const header = req.headers.authorization;
         if (!header || !header.startsWith("Bearer ")) {
@@ -36,7 +38,7 @@ async function optionalSupabaseAuth(req, res, next) {
             return next();
         }
         const token = header.split(" ")[1];
-        const { data: { user }, error } = await supabase_1.supabaseAdmin.auth.getUser(token);
+        const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
         if (error || !user) {
             console.error("optionalSupabaseAuth getUser error:", error);
             // invalid token → treat as anonymous, don't block

@@ -2,7 +2,9 @@ import { Response } from "express";
 import { rawVideoBucket } from "../../lib/gcs";
 import { AuthedRequest } from "../auth/auth.middleware";
 import crypto, { randomUUID } from "crypto";
-import { supabaseAdmin } from "../../config/supabase";
+import { getSupabaseAdmin } from "../../config/supabase";
+
+const supabaseAdmin = getSupabaseAdmin()
 
 export async function getImageUploadUrl(req: AuthedRequest, res: Response) {
   try {

@@ -1,7 +1,9 @@
 
 
 import type { Request, Response, NextFunction } from "express";
-import { supabaseAdmin } from "../../config/supabase";
+import { getSupabaseAdmin } from "../../config/supabase";
+
+
 
 export interface AuthedRequest extends Request {
   user?: any;
@@ -12,6 +14,9 @@ export async function supabaseAuth(
   res: Response,
   next: NextFunction
 ) {
+
+const supabaseAdmin = getSupabaseAdmin();
+
   try {
     const header = req.headers.authorization;
 
@@ -50,6 +55,8 @@ export async function optionalSupabaseAuth(
   res: Response,
   next: NextFunction
 ) {
+  const supabaseAdmin = getSupabaseAdmin();
+
   try {
     const header = req.headers.authorization;
 

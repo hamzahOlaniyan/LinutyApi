@@ -1,20 +1,48 @@
-import "dotenv/config";
-import { createClient } from "@supabase/supabase-js";
+// import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_KEY;
+// let cached: SupabaseClient | null = null;
 
-if (!supabaseUrl) {
-  throw new Error("SUPABASE_URL env not set");
+
+// const supabaseUrl = process.env.SUPABASE_URL;
+// const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// if (!supabaseUrl) {
+//   throw new Error("SUPABASE_URL env not set");
+// }
+// if (!supabaseServiceRoleKey) {
+//   throw new Error("SUPABASE_SERVICE_ROLE_KEY env not set");
+// }
+
+// export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+//   auth: {
+//     autoRefreshToken: false,
+//     persistSession: false,
+//     detectSessionInUrl: false,
+//   }
+// });
+
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+let cached: SupabaseClient | null = null;
+
+export function getSupabaseAdmin() {
+  if (cached) return cached;
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl) throw new Error("SUPABASE_URL env not set");
+  if (!serviceKey)
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY env not set");
+
+  cached = createClient(supabaseUrl, serviceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  return cached;
 }
-if (!supabaseServiceRoleKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY env not set");
-}
-
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
-  }
-});

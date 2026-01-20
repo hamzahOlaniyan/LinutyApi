@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getImageUploadUrl = getImageUploadUrl;
 const crypto_1 = require("crypto");
 const supabase_1 = require("../../config/supabase");
+const supabaseAdmin = (0, supabase_1.getSupabaseAdmin)();
 async function getImageUploadUrl(req, res) {
     try {
         const user = req.user;
@@ -17,7 +18,7 @@ async function getImageUploadUrl(req, res) {
         // path inside bucket – you can adjust this structure
         const objectName = `posts/${user.id}/${Date.now()}-${(0, crypto_1.randomUUID)()}.${ext}`;
         // 1) signed upload URL (client will PUT the file here)
-        const { data, error } = await supabase_1.supabaseAdmin.storage
+        const { data, error } = await supabaseAdmin.storage
             .from("post-images")
             .createSignedUploadUrl(objectName);
         if (error || !data) {
@@ -25,7 +26,7 @@ async function getImageUploadUrl(req, res) {
             return res.status(500).json({ message: "Could not create upload URL" });
         }
         // 2) public URL (since bucket is public)
-        const { data: publicData } = supabase_1.supabaseAdmin.storage
+        const { data: publicData } = supabaseAdmin.storage
             .from("post-images")
             .getPublicUrl(objectName);
         const publicUrl = publicData?.publicUrl ?? null;

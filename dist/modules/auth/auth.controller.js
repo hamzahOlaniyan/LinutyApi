@@ -14,6 +14,7 @@ const supabase_1 = require("../../config/supabase");
 const resend_1 = require("resend");
 const generateOtp_1 = require("../../utils/helpers/generateOtp");
 const resend = new resend_1.Resend(process.env.RESEND_API_KEY);
+const supabaseAdmin = (0, supabase_1.getSupabaseAdmin)();
 // const buildAuthResponse = (session: any, user: any, profile?:any) => {
 //   return {
 //     user: {
@@ -30,7 +31,7 @@ async function signup(req, res) {
         const { email, password, username, firstName, lastName } = req.body;
         if (!firstName || !lastName || !email || !password || !username)
             return res.status(401).json({ error: "Fields cannot be left enpty!" });
-        const { data, error } = await supabase_1.supabaseAdmin.auth.admin.createUser({
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
             email_confirm: false
@@ -268,7 +269,7 @@ async function resetPassword(req, res) {
         const { email } = req.body;
         if (!email)
             return res.status(400).json({ status: "failed", message: "email is required" });
-        const { error } = await supabase_1.supabaseAdmin.auth.resetPasswordForEmail(email, { redirectTo: "linutyapp://reset-password" });
+        const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, { redirectTo: "linutyapp://reset-password" });
         if (error)
             return res.status(401).json({ status: "failed", message: `failed to reset password ${error.message}` });
         return res.status(200).json({ status: "success", message: "If an account with that email exists, a reset link has been sent.", });
@@ -368,7 +369,7 @@ async function completeRegistration(req, res) {
 }
 async function signIn(req, res) {
     const { email, password } = req.body;
-    const { data, error } = await supabase_1.supabaseAdmin.auth.signInWithPassword({
+    const { data, error } = await supabaseAdmin.auth.signInWithPassword({
         email, password
     });
     if (error)
@@ -376,7 +377,7 @@ async function signIn(req, res) {
     res.status(201).json({ status: "success", data: data });
 }
 async function logout(req, res) {
-    const { error } = await supabase_1.supabaseAdmin.auth.signOut();
+    const { error } = await supabaseAdmin.auth.signOut();
     if (error)
         res.status(409).json({ message: "something went wrong login out" });
     res.status(201).json({ status: "success", message: "Successfully logged out" });
@@ -443,11 +444,11 @@ async function verifyEmailOtp(req, res) {
         where: { email },
         data: { isVerified: true },
     });
-    const { data } = await supabase_1.supabaseAdmin.auth.admin.listUsers();
+    const { data } = await supabaseAdmin.auth.admin.listUsers();
     const user = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
     if (!user)
         return res.status(404).json({ status: "error", message: "User not found" });
-    await supabase_1.supabaseAdmin.auth.admin.updateUserById(user.id, {
+    await supabaseAdmin.auth.admin.updateUserById(user.id, {
         email_confirm: true,
     });
     return res.status(200).json({ status: "success", message: "email verified!", verified: true });

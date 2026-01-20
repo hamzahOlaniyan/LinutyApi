@@ -6,8 +6,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
- const prisma = new PrismaClient({ adapter });
-
+const prisma = new PrismaClient({ adapter });
 
 const connectDB = async () => {
   await prisma.$connect();

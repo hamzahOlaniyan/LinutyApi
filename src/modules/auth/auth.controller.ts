@@ -106,33 +106,7 @@ const supabaseAdmin = getSupabaseAdmin();
       return res.status(500).json({ message: "Something went wrong" });
     }
   }
-  // export async function verifyOtp(req: AuthedRequest, res: Response) {
-  //   try {
-  //     const { email, otp } = req.body;
-
-  //     if (!email || !otp) return res.status(400).json({ message: "Email and OTP are required" });
-
-  //     const { data, error } = await supabaseAdmin.auth.verifyOtp({
-  //       email,
-  //       token: otp,
-  //       type: "email" 
-  //     });
-
-  //     if (error) return res.status(400).json({ message: error.message });
-
-  //     const { session, user } = data;
-
-  //     if (!session || !user) return res.status(400).json({ message: "Invalid or expired OTP" });
-
-  //     return res.status(200).json({status: "sucess", data: session,  user});
-  //     // return res.status(200).json(buildAuthResponse(session, user));
-
-      
-  //   } catch (err) {
-  //     console.error("verifyOtp controller error:", err);
-  //     return res.status(500).json({ message: "Something went wrong" });
-  //   }
-  // }
+  
 
 //    static async resendOtp(req:AuthedRequest,res:Response){
 //     try {

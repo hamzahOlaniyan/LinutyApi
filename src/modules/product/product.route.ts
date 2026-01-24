@@ -14,6 +14,9 @@ productRoutes.post("/:productId/media", ProductController.addProductMedia);
 productRoutes.get("/:productId", supabaseAuth, ProductController.getProductById);
 productRoutes.get("/:productId/media",supabaseAuth, ProductController.getProductMediaById);
 
+productRoutes.get("/:profileId/products",supabaseAuth, ProductController.getProductProfileId);
+
+
 productRoutes.patch("/:productId", supabaseAuth, ProductController.updateProductContent);
 
 productRoutes.delete("/:productId", supabaseAuth, ProductController.deleteProduct);
